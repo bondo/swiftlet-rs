@@ -1,0 +1,1 @@
+Inspired by "Implementation Strategies for Mutable Value Semantics" by Dimitri Racordon, Denys Shabalin, Daniel Zheng, Dave Abrahams and Brennan Saeta (https://www.jot.fm/issues/issue_2022_02/article2.pdf)
