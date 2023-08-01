@@ -38,6 +38,7 @@ impl Program {
                     }
                     errors.append(&mut errs);
                 }
+                "comment" => (),
                 "ERROR" => errors.push(parse_error(node)),
                 _ => errors.push(not_implemented_error("Program", node)),
             }
@@ -219,7 +220,7 @@ impl CallSuffix {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct ValueArguments(Vec<ValueArgument>);
+pub struct ValueArguments(pub(super) Vec<ValueArgument>);
 
 impl ValueArguments {
     fn parse(
@@ -242,6 +243,21 @@ impl ValueArguments {
         let mut args: Vec<ValueArgument> = vec![];
         let mut errors: Vec<UserParseError> = vec![];
 
+        let node = cursor.node();
+        match node.kind() {
+            "(" => (),
+            "ERROR" => errors.push(parse_error(node)),
+            _ => errors.push(not_implemented_error("ValueArguments", node)),
+        };
+        if !cursor.goto_next_sibling() {
+            errors.push(not_implemented_error(
+                "ValueArguments::parse::goto_next_sibling",
+                node.parent().unwrap(),
+            ));
+            cursor.goto_parent();
+            return Ok((Self(args), errors));
+        }
+
         loop {
             let node = cursor.node();
             match node.kind() {
@@ -252,10 +268,24 @@ impl ValueArguments {
                     }
                     errors.append(&mut errs);
                 }
+                ")" => {
+                    if cursor.goto_next_sibling() {
+                        let node = cursor.node();
+                        errors.push(not_implemented_error(
+                            "ValueArguments::parse::goto_next_sibling",
+                            node,
+                        ));
+                    }
+                    break;
+                }
                 "ERROR" => errors.push(parse_error(node)),
                 _ => errors.push(not_implemented_error("ValueArguments", node)),
             }
             if !cursor.goto_next_sibling() {
+                errors.push(not_implemented_error(
+                    "ValueArguments::parse::goto_next_sibling",
+                    node,
+                ));
                 break;
             }
         }
@@ -291,7 +321,7 @@ impl ValueArgument {
 
         let node = cursor.node();
         let (value_argument, mut errors) = match node.kind() {
-            "value_arguments" => (
+            "simple_identifier" => (
                 Some(Self::SimpleIdentifier(SimpleIdentifier::parse(
                     cursor, source,
                 )?)),

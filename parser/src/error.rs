@@ -66,7 +66,7 @@ impl UserParseError {
             Self::push_repeat_char(&mut caret, '^', end_column - start_column);
 
             formatted.push_str(&caret);
-            if self.context.len() > 0 {
+            if !self.context.is_empty() {
                 formatted.push_str(&format!(" {}", self.context));
             }
             formatted.push('\n');
@@ -91,7 +91,7 @@ impl UserParseError {
                     caret.push('^');
                     formatted.push_str(&caret);
 
-                    if self.context.len() > 0 {
+                    if !self.context.is_empty() {
                         formatted.push_str(&format!(" {}", self.context));
                     }
                     formatted.push('\n');
