@@ -45,6 +45,12 @@ impl UserParseError {
             let len = leading_whitespace(first);
             len.min(strs[1..].iter().map(|s| lcp(first, s)).min().unwrap_or(len))
         }
+        fn str_width(s: &str) -> usize {
+            s.chars().count() + s.chars().filter(|c| c == &'\t').count() * 3
+        }
+        fn fix_line_width(line: &str) -> String {
+            line.to_owned().replace('\t', "    ")
+        }
 
         let start = self.range.start_byte;
         let end = self.range.end_byte;
@@ -82,16 +88,19 @@ impl UserParseError {
         if start_line == end_line {
             let line = str::from_utf8(&source[start_of_line..end_of_line])?;
             let trim = leading_whitespace(line);
-            let line = &line[trim..];
 
             formatted.push_str(&format!(
                 "{pos} {line}\n",
-                pos = format!("{start_line} |").blue()
+                pos = format!("{:>line_number_width$} |", start_line).blue(),
+                line = fix_line_width(&line[trim..]),
             ));
 
+            let line_width_to_start = str_width(&line[trim..start_column - 1]);
+            let error_width = str_width(&line[start_column - 1..end_column - 1]);
+
             let mut caret = String::new();
-            caret.extend(repeat(' ').take(line_number_width + start_column - trim + 2));
-            caret.extend(repeat('^').take(end_column - start_column));
+            caret.extend(repeat(' ').take(line_number_width + 3 + line_width_to_start));
+            caret.extend(repeat('^').take(error_width));
 
             formatted.push_str(&format!("{caret}", caret = caret.red()));
             if !self.context.is_empty() {
@@ -104,7 +113,7 @@ impl UserParseError {
                 .collect();
             let trim = common_leading_whitespace(&lines);
 
-            for (off, line) in lines.iter().map(|l| &l[trim..]).enumerate() {
+            for (off, line) in lines.iter().enumerate() {
                 formatted.push_str(&format!(
                     "{pos} {c} {line}\n",
                     pos = format!(
@@ -113,6 +122,7 @@ impl UserParseError {
                     )
                     .blue(),
                     c = (if off == 0 { " " } else { "│" }).red(),
+                    line = fix_line_width(&line[trim..])
                 ));
                 if off == 0 {
                     formatted.push_str(&format!(
@@ -120,8 +130,10 @@ impl UserParseError {
                         pos = format!("{c:line_number_width$} |", c = ' ').blue(),
                     ));
 
+                    let line_width_to_start = str_width(&line[trim..start_column - 1]);
+
                     let mut caret = "╭".to_string();
-                    caret.extend(repeat('─').take(line_number_width + start_column - trim - 1));
+                    caret.extend(repeat('─').take(line_number_width + line_width_to_start));
                     caret.push('^');
                     formatted.push_str(&format!("{caret}", caret = caret.red()));
 
@@ -130,18 +142,21 @@ impl UserParseError {
                     }
                     formatted.push('\n');
                 }
+                if off == lines.len() - 1 {
+                    formatted.push_str(&format!(
+                        "{pos} ",
+                        pos = format!("{c:line_number_width$} |", c = ' ').blue(),
+                    ));
+
+                    let line_width_to_end = str_width(&line[trim..end_column - 1]);
+
+                    let mut caret = "╰".to_string();
+                    caret.extend(repeat('─').take(line_number_width + line_width_to_end));
+                    caret.push('^');
+
+                    formatted.push_str(&format!("{caret}\n", caret = caret.red()));
+                }
             }
-
-            formatted.push_str(&format!(
-                "{pos} ",
-                pos = format!("{c:line_number_width$} |", c = ' ').blue(),
-            ));
-
-            let mut caret = "╰".to_string();
-            caret.extend(repeat('─').take(end_column - trim - 1));
-            caret.push('^');
-
-            formatted.push_str(&format!("{caret}\n", caret = caret.red()));
         }
 
         Ok(FormattedUserParseError { message: formatted })
