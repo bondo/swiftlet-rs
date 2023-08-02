@@ -1,5 +1,6 @@
-use std::fmt::Display;
+use std::{fmt::Display, iter::repeat, str};
 
+use colored::Colorize;
 use tree_sitter::{LanguageError, Range};
 
 #[derive(thiserror::Error, Debug, PartialEq)]
@@ -11,7 +12,7 @@ pub enum InternalParserError {
     ParseExecution,
 
     #[error("UTF-8 error: {0}")]
-    Utf8(#[from] std::str::Utf8Error),
+    Utf8(#[from] str::Utf8Error),
 }
 
 pub(super) struct UserParseError {
@@ -21,14 +22,30 @@ pub(super) struct UserParseError {
 }
 
 impl UserParseError {
-    fn push_repeat_char(str: &mut String, c: char, n: usize) {
-        str.extend(std::iter::repeat(c).take(n))
-    }
-
     pub(super) fn format(
         &self,
         source: &[u8],
     ) -> Result<FormattedUserParseError, InternalParserError> {
+        fn leading_whitespace(str: &str) -> usize {
+            str.chars().take_while(|c| c.is_whitespace()).count()
+        }
+        fn common_leading_whitespace(strs: &[&str]) -> usize {
+            if strs.is_empty() {
+                return 0;
+            }
+
+            fn lcp(a: &str, b: &str) -> usize {
+                a.chars()
+                    .zip(b.chars())
+                    .take_while(|(a, b)| a == b && a.is_whitespace())
+                    .count()
+            }
+
+            let first = strs[0];
+            let len = leading_whitespace(first);
+            len.min(strs[1..].iter().map(|s| lcp(first, s)).min().unwrap_or(len))
+        }
+
         let start = self.range.start_byte;
         let end = self.range.end_byte;
 
@@ -50,67 +67,81 @@ impl UserParseError {
             .map(|i| end + i)
             .unwrap_or(source.len());
 
-        let mut formatted = format!("Error: {}\n", self.message);
+        let mut formatted = format!(
+            "{error}: {message}\n",
+            error = "error".red(),
+            message = self.message
+        );
 
         formatted.push_str(&format!(
-            " --> {file}:{start_line}:{start_column}\n",
+            " {arrow} {file}:{start_line}:{start_column}\n",
+            arrow = "-->".blue(),
             file = "?"
         ));
 
         if start_line == end_line {
-            let line = std::str::from_utf8(&source[start_of_line..end_of_line])?;
-            formatted.push_str(&format!("{start_line} | {line}\n"));
+            let line = str::from_utf8(&source[start_of_line..end_of_line])?;
+            let trim = leading_whitespace(line);
+            let line = &line[trim..];
+
+            formatted.push_str(&format!(
+                "{pos} {line}\n",
+                pos = format!("{start_line} |").blue()
+            ));
 
             let mut caret = String::new();
-            Self::push_repeat_char(&mut caret, ' ', line_number_width + start_column + 2);
-            Self::push_repeat_char(&mut caret, '^', end_column - start_column);
+            caret.extend(repeat(' ').take(line_number_width + start_column - trim + 2));
+            caret.extend(repeat('^').take(end_column - start_column));
 
-            formatted.push_str(&caret);
+            formatted.push_str(&format!("{caret}", caret = caret.red()));
             if !self.context.is_empty() {
-                formatted.push_str(&format!(" {}", self.context));
+                formatted.push_str(&format!(" {}", self.context.red()));
             }
             formatted.push('\n');
         } else {
-            for (off, line) in std::str::from_utf8(&source[start_of_line..end_of_line])?
+            let lines: Vec<&str> = str::from_utf8(&source[start_of_line..end_of_line])?
                 .split('\n')
-                .enumerate()
-            {
+                .collect();
+            let trim = common_leading_whitespace(&lines);
+
+            for (off, line) in lines.iter().map(|l| &l[trim..]).enumerate() {
                 formatted.push_str(&format!(
-                    "{line_number:>line_number_width$} | {c} {line}\n",
-                    line_number = start_line + off,
-                    c = if off == 0 { ' ' } else { '|' },
+                    "{pos} {c} {line}\n",
+                    pos = format!(
+                        "{line_number:>line_number_width$} |",
+                        line_number = start_line + off
+                    )
+                    .blue(),
+                    c = (if off == 0 { " " } else { "│" }).red(),
                 ));
                 if off == 0 {
                     formatted.push_str(&format!(
-                        "{line_number:>line_number_width$} | +",
-                        line_number = start_line + off,
+                        "{pos} ",
+                        pos = format!("{c:line_number_width$} |", c = ' ').blue(),
                     ));
 
-                    let mut caret = String::new();
-                    Self::push_repeat_char(&mut caret, '-', line_number_width + start_column - 1);
+                    let mut caret = "╭".to_string();
+                    caret.extend(repeat('─').take(line_number_width + start_column - trim - 1));
                     caret.push('^');
-                    formatted.push_str(&caret);
+                    formatted.push_str(&format!("{caret}", caret = caret.red()));
 
                     if !self.context.is_empty() {
-                        formatted.push_str(&format!(" {}", self.context));
+                        formatted.push_str(&format!(" {}", self.context.red()));
                     }
                     formatted.push('\n');
                 }
             }
 
-            formatted.push_str(&format!("{end_line:>line_number_width$} | +"));
+            formatted.push_str(&format!(
+                "{pos} ",
+                pos = format!("{c:line_number_width$} |", c = ' ').blue(),
+            ));
 
-            let mut caret = String::new();
-            Self::push_repeat_char(&mut caret, '-', end_column - 1);
+            let mut caret = "╰".to_string();
+            caret.extend(repeat('─').take(end_column - trim - 1));
             caret.push('^');
 
-            formatted.push_str(&caret);
-            formatted.push('\n');
-
-            formatted.push_str(&format!(
-                " --> {file}:{end_line}:{end_column}\n",
-                file = "?"
-            ));
+            formatted.push_str(&format!("{caret}\n", caret = caret.red()));
         }
 
         Ok(FormattedUserParseError { message: formatted })
