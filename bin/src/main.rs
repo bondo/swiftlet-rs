@@ -1,14 +1,16 @@
-use parser::parse;
+use parser;
 
 fn main() {
     let source = r#"
-        var foo: Int = 4;
-        let bar = foo;
-        print(bar) // Prints 4
+        struct Vec2 { var x: Int, y: Int };
+        var v = Vec2 (x: 4, y: 2);
+        print(v.y) // Prints 2
     "#;
 
-    match parse(source) {
+    parser::print_syntax_tree(source);
+
+    match parser::parse(source) {
         Ok(ast) => println!("{:#?}", ast),
-        Err(e) => println!("{}", e),
+        Err(e) => eprintln!("{}", e),
     }
 }

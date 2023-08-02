@@ -1,7 +1,8 @@
 use ast::Program;
-use tree_sitter::Parser;
+use tree_sitter::{Parser, TreeCursor};
 
 mod ast;
+mod convert;
 mod error;
 
 pub use ast::*;
@@ -18,7 +19,7 @@ pub fn parse(source: &str) -> Result<Program, ParserError> {
 
     let mut cursor = tree.walk();
     let source = source.as_bytes();
-    let (ast, errors) = Program::parse(&mut cursor, source)?;
+    let (ast, errors) = Program::convert(&mut cursor, source)?;
     if !errors.is_empty() {
         let errors = errors
             .iter()
@@ -28,6 +29,31 @@ pub fn parse(source: &str) -> Result<Program, ParserError> {
     } else {
         Ok(ast)
     }
+}
+
+pub fn print_syntax_tree(source: &str) {
+    let mut parser = Parser::new();
+    parser
+        .set_language(tree_sitter_swift::language())
+        .expect("Failed to load Swift language");
+    let tree = parser
+        .parse(source, None)
+        .expect("Failed to parse source code");
+
+    fn print_node(cursor: &mut TreeCursor, depth: usize) {
+        let node = cursor.node();
+        println!("{ind}{kind}", ind = "  ".repeat(depth), kind = node.kind());
+        if cursor.goto_first_child() {
+            loop {
+                print_node(cursor, depth + 1);
+                if !cursor.goto_next_sibling() {
+                    break;
+                }
+            }
+            cursor.goto_parent();
+        }
+    }
+    print_node(&mut tree.walk(), 0);
 }
 
 #[cfg(test)]
@@ -72,9 +98,11 @@ mod tests {
                             name: "print".to_string()
                         },
                         arguments: CallSuffix::ValueArguments(ValueArguments(vec![
-                            ValueArgument::SimpleIdentifier(SimpleIdentifier {
-                                name: "bar".to_string()
-                            },),
+                            ValueArgument::Value(Box::new(Expr::SimpleIdentifier(
+                                SimpleIdentifier {
+                                    name: "bar".to_string()
+                                }
+                            )),),
                         ],),),
                     },),
                 ],
@@ -82,15 +110,15 @@ mod tests {
         );
     }
 
-    // #[test]
-    // fn example_2() {
-    //     let result = parse(
-    //         r#"
-    //             struct Vec2 { ... };
-    //             var v = Vec2 (x: 4, y: 2);
-    //             print(v.y) // Prints 2
-    //         "#,
-    //     );
-    //     assert_eq!(format!("{result:?}"), "Ok(SwiftletProc {})");
-    // }
+    #[test]
+    fn example_2() {
+        let result = parse(
+            r#"
+                struct Vec2 { var x: Int, y: Int };
+                var v = Vec2 (x: 4, y: 2);
+                print(v.y) // Prints 2
+            "#,
+        );
+        assert_eq!(format!("{result:?}"), "Ok(SwiftletProc {})");
+    }
 }

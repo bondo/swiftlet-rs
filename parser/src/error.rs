@@ -179,6 +179,6 @@ pub enum ParserError {
     #[error("Internal parser error: {0}")]
     Internal(#[from] InternalParserError),
 
-    #[error("Parse errors:\n\n{}", .0.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n\n"))]
+    #[error("{}", .0.iter().map(|e| e.to_string()).collect::<Vec<_>>().join("\n"))]
     Source(Vec<FormattedUserParseError>),
 }
