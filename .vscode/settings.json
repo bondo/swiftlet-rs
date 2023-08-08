@@ -5,6 +5,7 @@
     "rustfmt",
     "sexp",
     "tempfile",
-    "thiserror"
+    "thiserror",
+    "yansi"
   ]
 }

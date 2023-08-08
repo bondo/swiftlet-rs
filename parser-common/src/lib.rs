@@ -9,11 +9,16 @@ pub struct ParseError {
 impl ParseError {
     pub fn print(&self, source: &str) {
         use ariadne::{Label, Report, ReportKind, Source};
+        use yansi::Color;
 
         // TODO: That label should be character offsets, not byte offsets
         Report::build(ReportKind::Error, (), 34)
             .with_message(&self.message)
-            .with_label(Label::new(self.start_byte..self.end_byte).with_message(&self.context))
+            .with_label(
+                Label::new(self.start_byte..self.end_byte)
+                    .with_color(Color::Red)
+                    .with_message(&self.context),
+            )
             .finish()
             .print(Source::from(source))
             .unwrap();
@@ -81,11 +86,6 @@ impl<T: Extract> Extract for Box<T> {
 impl<T: Extract> Extract for Vec<T> {
     fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, Vec<ParseError>> {
         let mut cursor = node.walk();
-
-        if !cursor.goto_first_child() {
-            return Ok(vec![]);
-        }
-
         let mut errors = Vec::new();
         let mut result = Vec::new();
 
@@ -113,10 +113,19 @@ impl<T: Extract> Extract for Vec<T> {
     }
 }
 
-pub fn not_implemented_error(node: tree_sitter::Node) -> ParseError {
+pub fn not_implemented_error(
+    node: tree_sitter::Node,
+    message: &str,
+    constructor: &str,
+) -> ParseError {
+    let kind = if let Some(parent) = node.parent() {
+        format!("{} in {}", node.kind(), parent.kind())
+    } else {
+        node.kind().to_string()
+    };
     ParseError {
-        message: "Not implemented".to_string(),
-        context: node.kind().to_string(),
+        message: format!("Not implemented. Expected {message}."),
+        context: format!("Creating {constructor} from {kind}"),
         start_byte: node.range().start_byte,
         end_byte: node.range().end_byte,
     }

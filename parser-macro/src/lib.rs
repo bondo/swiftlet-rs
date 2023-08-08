@@ -12,6 +12,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
         attrs,
         ..
     } = parse_macro_input!(input as DeriveInput);
+    let str_ident = ident.to_string();
 
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
@@ -26,7 +27,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                     });
                     let parse_fields = intersperse(fields_named.named.iter().map(generate_named_struct_field), quote!(
                         if !cursor.goto_next_sibling() {
-                            errors.push(::parser_common::not_implemented_error(node));
+                            errors.push(::parser_common::not_implemented_error(node, "next sibling", #str_ident));
                             return Err(errors);
                         }
                     ));
@@ -39,7 +40,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                                 let mut cursor = node.walk();
 
                                 if !cursor.goto_first_child() {
-                                    return Err(vec![::parser_common::not_implemented_error(node)]);
+                                    return Err(vec![::parser_common::not_implemented_error(node, "first child", #str_ident)]);
                                 }
 
                                 let mut errors: Vec<::parser_common::ParseError> = vec![];
@@ -47,7 +48,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                                 #(#parse_fields)*
 
                                 if cursor.goto_next_sibling() {
-                                    errors.push(::parser_common::not_implemented_error(cursor.node()));
+                                    errors.push(::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident));
                                 }
 
                                 if errors.len() > 0 {
@@ -82,7 +83,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                                 let mut cursor = node.walk();
 
                                 if !cursor.goto_first_child() {
-                                    return Err(vec![::parser_common::not_implemented_error(node)]);
+                                    return Err(vec![::parser_common::not_implemented_error(node, "first child", #str_ident)]);
                                 }
 
                                 let mut errors: Vec<::parser_common::ParseError> = vec![];
@@ -90,7 +91,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                                 let value: Option<#ty> = #value;
 
                                 if cursor.goto_next_sibling() {
-                                    errors.push(::parser_common::not_implemented_error(cursor.node()));
+                                    errors.push(::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident));
                                 }
 
                                 if errors.len() > 0 {
@@ -128,7 +129,7 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                         }
                         match node.kind() {
                             #(#cases),*,
-                            _ => Err(vec![::parser_common::not_implemented_error(node)]),
+                            _ => Err(vec![::parser_common::not_implemented_error(node, "enum constructor", #str_ident)]),
                         }
                     }
 

@@ -2,9 +2,7 @@ use parser::{self, ParserError};
 
 fn main() {
     let source = r#"
-        struct Vec2 { var x: Int, y: Int };
-        var v = Vec2 (x: 4, y: 2);
-        print(v.y) // Prints 2
+        var foo: Int = 4;
     "#;
 
     parser::print_syntax_tree(source);
