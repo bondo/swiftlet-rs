@@ -1,3 +1,10 @@
 {
-  "cSpell.words": ["sexp", "thiserror"]
+  "cSpell.words": [
+    "insta",
+    "itertools",
+    "rustfmt",
+    "sexp",
+    "tempfile",
+    "thiserror"
+  ]
 }

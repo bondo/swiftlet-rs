@@ -2,9 +2,17 @@
 members = [
     "bin",
     "parser",
+    "parser-common",
+    "parser-macro",
 ]
 
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
 authors = ["Bjarke Bondo Andersen"]
+
+[workspace.dependencies]
+parser = { path = "parser" }
+parser-common = { path = "parser-common" }
+parser-macro = { path = "parser-macro" }
+tree-sitter = "0.20.10"

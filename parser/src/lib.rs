@@ -1,8 +1,8 @@
 use ast::Program;
+use parser_common::Extract;
 use tree_sitter::{Parser, TreeCursor};
 
 mod ast;
-mod convert;
 mod error;
 
 pub use ast::*;
@@ -12,22 +12,16 @@ pub fn parse(source: &str) -> Result<Program, ParserError> {
     let mut parser = Parser::new();
     parser
         .set_language(tree_sitter_swift::language())
-        .map_err(InternalParserError::from)?;
+        .map_err(|e| ParserError::Internal(InternalParserError::Setup(e)))?;
     let tree = parser
         .parse(source, None)
-        .ok_or(InternalParserError::ParseExecution)?;
+        .ok_or(ParserError::Internal(InternalParserError::ParseExecution))?;
 
-    let mut cursor = tree.walk();
     let source = source.as_bytes();
-    let (ast, errors) = Program::convert(&mut cursor, source)?;
-    if !errors.is_empty() {
-        let errors = errors
-            .iter()
-            .map(|e| e.format(source))
-            .collect::<Result<Vec<_>, _>>()?;
-        Err(ParserError::Source(errors))
-    } else {
-        Ok(ast)
+
+    match Program::extract(tree.root_node(), source) {
+        Ok(ast) => Ok(ast),
+        Err(errors) => Err(ParserError::Source(errors)),
     }
 }
 
@@ -75,9 +69,7 @@ mod tests {
                 exprs: vec![
                     Expr::PropertyDeclaration(PropertyDeclaration {
                         qualifier: Qualifier::Var,
-                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier {
-                            name: "foo".to_string()
-                        },),
+                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier("foo".to_string())),
                         r#type: Some(TypeIdentifier::UserType(UserType {
                             name: "Int".to_string()
                         },),),
@@ -85,24 +77,19 @@ mod tests {
                     },),
                     Expr::PropertyDeclaration(PropertyDeclaration {
                         qualifier: Qualifier::Let,
-                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier {
-                            name: "bar".to_string()
-                        },),
+                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier("bar".to_string())),
                         r#type: None,
-                        rhs: Box::new(Expr::SimpleIdentifier(SimpleIdentifier {
-                            name: "foo".to_string()
-                        },)),
-                    },),
+                        rhs: Box::new(Expr::SimpleIdentifier(SimpleIdentifier("foo".to_string()))),
+                    }),
                     Expr::CallExpression(CallExpression {
-                        callee: SimpleIdentifier {
-                            name: "print".to_string()
-                        },
+                        callee: SimpleIdentifier("print".to_string()),
                         arguments: CallSuffix::ValueArguments(ValueArguments(vec![
-                            ValueArgument::Value(Box::new(Expr::SimpleIdentifier(
-                                SimpleIdentifier {
-                                    name: "bar".to_string()
-                                }
-                            )),),
+                            ValueArgument {
+                                label: None,
+                                value: Box::new(Expr::SimpleIdentifier(SimpleIdentifier(
+                                    "bar".to_string()
+                                ))),
+                            }
                         ],),),
                     },),
                 ],

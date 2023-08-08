@@ -1,4 +1,4 @@
-use parser;
+use parser::{self, ParserError};
 
 fn main() {
     let source = r#"
@@ -11,6 +11,11 @@ fn main() {
 
     match parser::parse(source) {
         Ok(ast) => println!("{:#?}", ast),
-        Err(e) => eprintln!("{}", e),
+        Err(ParserError::Internal(e)) => eprintln!("{:#?}", e),
+        Err(ParserError::Source(errors)) => {
+            for error in errors {
+                error.print(source);
+            }
+        }
     }
 }
