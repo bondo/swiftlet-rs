@@ -94,13 +94,21 @@ pub enum TypeIdentifier {
 }
 
 #[derive(Debug, PartialEq, Extract)]
+#[kind("type_annotation")]
+pub struct TypeAnnotation {
+    pub colon: ColonToken,
+
+    pub r#type: TypeIdentifier,
+}
+
+#[derive(Debug, PartialEq, Extract)]
 #[kind("property_declaration")]
 pub struct PropertyDeclaration {
     pub qualifier: Qualifier,
 
     pub lhs: Pattern,
 
-    pub r#type: Option<TypeIdentifier>,
+    pub r#type: Option<TypeAnnotation>,
 
     pub eq: EqToken,
 
@@ -110,3 +118,7 @@ pub struct PropertyDeclaration {
 #[derive(Debug, PartialEq, Extract)]
 #[kind("=")]
 pub struct EqToken;
+
+#[derive(Debug, PartialEq, Extract)]
+#[kind(":")]
+pub struct ColonToken;

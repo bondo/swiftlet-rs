@@ -7,6 +7,6 @@ authors.workspace = true
 [dependencies]
 parser-common.workspace = true
 parser-macro.workspace = true
-thiserror = "1.0.44"
+thiserror.workspace = true
 tree-sitter.workspace = true
 tree-sitter-swift = "0.3.6"

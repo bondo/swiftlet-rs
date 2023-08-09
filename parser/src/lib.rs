@@ -1,5 +1,5 @@
 use ast::Program;
-use parser_common::Extract;
+use parser_common::{Extract, ExtractError};
 use tree_sitter::{Parser, TreeCursor};
 
 mod ast;
@@ -21,7 +21,10 @@ pub fn parse(source: &str) -> Result<Program, ParserError> {
 
     match Program::extract(tree.root_node(), source) {
         Ok(ast) => Ok(ast),
-        Err(errors) => Err(ParserError::Source(errors)),
+        Err(ExtractError::Advance(errors)) => Err(ParserError::Source(errors)),
+        Err(ExtractError::Skip(_)) => {
+            Err(ParserError::Internal(InternalParserError::ParseExecution))
+        }
     }
 }
 
@@ -69,16 +72,25 @@ mod tests {
                 exprs: vec![
                     Expr::PropertyDeclaration(PropertyDeclaration {
                         qualifier: Qualifier::Var,
-                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier("foo".to_string())),
-                        r#type: Some(TypeIdentifier::UserType(UserType {
-                            name: "Int".to_string()
-                        },),),
-                        rhs: Box::new(Expr::IntegerLiteral(4,)),
-                    },),
+                        lhs: Pattern {
+                            identifier: (SimpleIdentifier("foo".to_string()))
+                        },
+                        r#type: Some(TypeAnnotation {
+                            colon: ColonToken,
+                            r#type: TypeIdentifier::UserType(UserType {
+                                name: "Int".to_string()
+                            })
+                        }),
+                        eq: EqToken,
+                        rhs: Box::new(Expr::IntegerLiteral(4)),
+                    }),
                     Expr::PropertyDeclaration(PropertyDeclaration {
                         qualifier: Qualifier::Let,
-                        lhs: Pattern::SimpleIdentifier(SimpleIdentifier("bar".to_string())),
+                        lhs: Pattern {
+                            identifier: (SimpleIdentifier("bar".to_string()))
+                        },
                         r#type: None,
+                        eq: EqToken,
                         rhs: Box::new(Expr::SimpleIdentifier(SimpleIdentifier("foo".to_string()))),
                     }),
                     Expr::CallExpression(CallExpression {
@@ -90,8 +102,8 @@ mod tests {
                                     "bar".to_string()
                                 ))),
                             }
-                        ],),),
-                    },),
+                        ])),
+                    }),
                 ],
             })
         );

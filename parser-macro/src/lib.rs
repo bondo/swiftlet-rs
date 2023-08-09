@@ -1,4 +1,3 @@
-use itertools::intersperse;
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::{parse_macro_input, Attribute, Data, DeriveInput, Field, Fields, LitStr, Variant};
@@ -25,36 +24,48 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                         let name = f.ident.as_ref().expect("Field should have name");
                         quote!(#name)
                     });
-                    let parse_fields = intersperse(fields_named.named.iter().map(generate_named_struct_field), quote!(
-                        if !cursor.goto_next_sibling() {
-                            return Err(vec![::parser_common::not_implemented_error(node, "next sibling", #str_ident)]);
-                        }
-                    ));
+                    let parse_fields = fields_named.named.iter().enumerate().map(|(idx, field)| {
+                        let field_ident = field.ident.as_ref().expect("field should have name");
+                        let ty = &field.ty;
+                        let value = generate_struct_value(field);
+                        let is_last = idx == fields_named.named.len() - 1;
+
+                        quote!(
+                            let #field_ident: #ty = match #value {
+                                Ok(value) => {
+                                    if #is_last {
+                                        if cursor.goto_next_sibling() {
+                                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]));
+                                        }
+                                    } else {
+                                        if !cursor.goto_next_sibling() {
+                                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "next sibling", #str_ident)]));
+                                        }
+                                    }
+                                    value
+                                },
+                                Err(::parser_common::ExtractError::Advance(errs)) => return Err(::parser_common::ExtractError::Advance(errs)),
+                                Err(::parser_common::ExtractError::Skip(v)) => v,
+                            };
+                        )
+                    });
 
                     quote!(
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
-                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, Vec<::parser_common::ParseError>> {
-                                debug_assert_eq!(node.kind(), #kind);
+                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
+                                if node.kind() != #kind {
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                }
 
                                 let mut cursor = node.walk();
 
                                 if !cursor.goto_first_child() {
-                                    return Err(vec![::parser_common::not_implemented_error(node, "first child", #str_ident)]);
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "first child", #str_ident)]));
                                 }
-
 
                                 #(#parse_fields)*
 
-                                if cursor.goto_next_sibling() {
-                                    return Err(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]);
-                                }
-
                                 Ok(#ident{#(#field_values),*})
-                            }
-
-
-                            fn can_extract_kind(kind: &str) -> bool {
-                                kind == #kind
                             }
                         }
                     )
@@ -71,25 +82,26 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
 
                     quote!(
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
-                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, Vec<::parser_common::ParseError>> {
-                                debug_assert_eq!(node.kind(), #kind);
+                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
+                                if node.kind() != #kind {
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                }
 
                                 let mut cursor = node.walk();
 
                                 let in_child = cursor.goto_first_child();
 
-                                let value: #ty = #value;
+                                let value: #ty = match #value {
+                                    Ok(value) => value,
+                                    Err(::parser_common::ExtractError::Advance(errs)) => return Err(::parser_common::ExtractError::Advance(errs)),
+                                    Err(::parser_common::ExtractError::Skip(v)) => v,
+                                };
 
                                 if in_child && cursor.goto_next_sibling() {
-                                    return Err(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]);
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]));
                                 }
 
                                 Ok(#ident(value))
-                            }
-
-
-                            fn can_extract_kind(kind: &str) -> bool {
-                                kind == #kind
                             }
                         }
                     )
@@ -97,20 +109,18 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                 Fields::Unit => {
                     quote!(
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
-                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, Vec<::parser_common::ParseError>> {
-                                debug_assert_eq!(node.kind(), #kind);
+                            fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
+                                if node.kind() != #kind {
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                }
 
                                 let mut cursor = node.walk();
 
                                 if cursor.goto_first_child() {
-                                    return Err(vec![::parser_common::not_implemented_error(cursor.node(), "first child", #str_ident)]);
+                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "first child", #str_ident)]));
                                 }
 
                                 Ok(#ident)
-                            }
-
-                            fn can_extract_kind(kind: &str) -> bool {
-                                kind == #kind
                             }
                         }
                     )
@@ -119,31 +129,19 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
         }
         Data::Enum(data_enum) => {
             let cases = data_enum.variants.iter().map(generate_enum_variant);
-            let kind_cases = data_enum.variants.iter().map(|variant| {
-                let kind = extract_select(&variant.attrs);
-                quote! (#kind => true)
-            });
 
             quote! {
                 impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
-                    fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, Vec<::parser_common::ParseError>> {
+                    fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
                         if node.is_missing() {
-                            return Err(vec![::parser_common::missing_error(node)]);
+                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::missing_error(node)]));
                         }
                         if node.is_error() {
-                            return Err(vec![::parser_common::parse_error(node)]);
+                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::parse_error(node)]));
                         }
                         match node.kind() {
                             #(#cases),*,
-                            _ => Err(vec![::parser_common::not_implemented_error(node, "enum constructor", #str_ident)]),
-                        }
-                    }
-
-
-                    fn can_extract_kind(kind: &str) -> bool {
-                        match kind {
-                            #(#kind_cases),*,
-                            _ => false,
+                            _ => Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "enum constructor", #str_ident)])),
                         }
                     }
                 }
@@ -189,26 +187,16 @@ fn parse_kind(attr: &Attribute) -> Option<String> {
     }
 }
 
-fn generate_named_struct_field(field: &Field) -> proc_macro2::TokenStream {
-    let ident = field.ident.as_ref().expect("field should have name");
-    let ty = &field.ty;
-    let value = generate_struct_value(field);
-
-    quote!(
-        let #ident: #ty = #value;
-    )
-}
-
 fn generate_struct_value(field: &Field) -> proc_macro2::TokenStream {
     let ty = &field.ty;
 
     quote!(
         if cursor.node().is_missing() {
-            return Err(vec![::parser_common::missing_error(cursor.node())]);
+            Err(::parser_common::ExtractError::Advance(vec![::parser_common::missing_error(cursor.node())]))
         } else if cursor.node().is_error() {
-            return Err(vec![::parser_common::parse_error(cursor.node())]);
+            Err(::parser_common::ExtractError::Advance(vec![::parser_common::parse_error(cursor.node())]))
         } else {
-            <#ty as ::parser_common::Extract>::extract(cursor.node(), source)?
+            <#ty as ::parser_common::Extract>::extract(cursor.node(), source)
         }
     )
 }
@@ -234,7 +222,11 @@ fn generate_enum_variant(variant: &Variant) -> proc_macro2::TokenStream {
             let ty = &field.ty;
 
             quote!(
-                #select => Ok(Self::#variant_ident(<#ty as ::parser_common::Extract>::extract(node, source)?))
+                #select => match <#ty as ::parser_common::Extract>::extract(node, source) {
+                    Ok(value) => Ok(Self::#variant_ident(value)),
+                    Err(::parser_common::ExtractError::Advance(errs)) => return Err(::parser_common::ExtractError::Advance(errs)),
+                    Err(::parser_common::ExtractError::Skip(v)) => Err(::parser_common::ExtractError::Skip(Self::#variant_ident(v))),
+                }
             )
         }
     }

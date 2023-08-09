@@ -9,7 +9,6 @@ proc-macro = true
 path = "src/lib.rs"
 
 [dependencies]
-itertools = "0.11.0"
 proc-macro2 = "1.0.66"
 quote = "1.0.32"
 syn = { version = "2.0.28", features = ["extra-traits"] }

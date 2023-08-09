@@ -3,6 +3,8 @@ use parser::{self, ParserError};
 fn main() {
     let source = r#"
         var foo: Int = 4;
+        let bar = foo;
+        print(bar) // Prints 4
     "#;
 
     parser::print_syntax_tree(source);
