@@ -75,9 +75,9 @@ pub enum Qualifier {
 pub struct SimpleIdentifier(pub(super) String);
 
 #[derive(Debug, PartialEq, Extract)]
-pub enum Pattern {
-    #[select("simple_identifier")]
-    SimpleIdentifier(SimpleIdentifier),
+#[kind("pattern")]
+pub struct Pattern {
+    pub identifier: SimpleIdentifier,
 }
 
 #[derive(Debug, PartialEq, Extract)]
@@ -102,5 +102,11 @@ pub struct PropertyDeclaration {
 
     pub r#type: Option<TypeIdentifier>,
 
+    pub eq: EqToken,
+
     pub rhs: Box<Expr>,
 }
+
+#[derive(Debug, PartialEq, Extract)]
+#[kind("=")]
+pub struct EqToken;
