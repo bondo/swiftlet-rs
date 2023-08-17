@@ -27,19 +27,34 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                     let parse_fields = fields_named.named.iter().enumerate().map(|(idx, field)| {
                         let field_ident = field.ident.as_ref().expect("field should have name");
                         let ty = &field.ty;
-                        let value = generate_struct_value(field);
                         let is_last = idx == fields_named.named.len() - 1;
 
                         quote!(
-                            let #field_ident: #ty = match #value {
+                            if cursor.node().is_missing() {
+                                return Err(::parser_common::ExtractError::Advance(vec![
+                                    ::parser_common::missing_error(cursor.node()),
+                                ]));
+                            }
+
+                            if cursor.node().is_error() {
+                                return Err(::parser_common::ExtractError::Advance(vec![
+                                    ::parser_common::parse_error(cursor.node()),
+                                ]));
+                            }
+
+                            let #field_ident: #ty = match <#ty as ::parser_common::Extract>::extract(cursor.node(), source) {
                                 Ok(value) => {
                                     if #is_last {
                                         if cursor.goto_next_sibling() {
-                                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]));
+                                            return Err(::parser_common::ExtractError::Advance(vec![
+                                                ::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident),
+                                            ]));
                                         }
                                     } else {
                                         if !cursor.goto_next_sibling() {
-                                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "next sibling", #str_ident)]));
+                                            return Err(::parser_common::ExtractError::Advance(vec![
+                                                ::parser_common::not_implemented_error(node, "next sibling", #str_ident),
+                                            ]));
                                         }
                                     }
                                     value
@@ -54,13 +69,17 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
                             fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
                                 if node.kind() != #kind {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                    return Err(::parser_common::ExtractError::Advance(vec![
+                                        ::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident),
+                                    ]));
                                 }
 
                                 let mut cursor = node.walk();
 
                                 if !cursor.goto_first_child() {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "first child", #str_ident)]));
+                                    return Err(::parser_common::ExtractError::Advance(vec![
+                                        ::parser_common::not_implemented_error(node, "first child", #str_ident),
+                                    ]));
                                 }
 
                                 #(#parse_fields)*
@@ -78,28 +97,21 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                     );
                     let field = fields_unnamed.unnamed.first().unwrap();
                     let ty = &field.ty;
-                    let value = generate_struct_value(field);
 
                     quote!(
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
                             fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
                                 if node.kind() != #kind {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                    return Err(::parser_common::ExtractError::Advance(vec![
+                                        ::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident),
+                                    ]));
                                 }
 
-                                let mut cursor = node.walk();
-
-                                let in_child = cursor.goto_first_child();
-
-                                let value: #ty = match #value {
+                                let value: #ty = match <#ty as ::parser_common::Extract>::extract(node, source) {
                                     Ok(value) => value,
                                     Err(::parser_common::ExtractError::Advance(errs)) => return Err(::parser_common::ExtractError::Advance(errs)),
                                     Err(::parser_common::ExtractError::Skip(v)) => v,
                                 };
-
-                                if in_child && cursor.goto_next_sibling() {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "no more siblings", #str_ident)]));
-                                }
 
                                 Ok(#ident(value))
                             }
@@ -111,13 +123,17 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                         impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
                             fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
                                 if node.kind() != #kind {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident)]));
+                                    return Err(::parser_common::ExtractError::Advance(vec![
+                                        ::parser_common::not_implemented_error(node, &format!("kind {}", #kind), #str_ident),
+                                    ]));
                                 }
 
                                 let mut cursor = node.walk();
 
                                 if cursor.goto_first_child() {
-                                    return Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(cursor.node(), "first child", #str_ident)]));
+                                    return Err(::parser_common::ExtractError::Advance(vec![
+                                        ::parser_common::not_implemented_error(cursor.node(), "first child", #str_ident),
+                                    ]));
                                 }
 
                                 Ok(#ident)
@@ -134,14 +150,20 @@ pub fn derive_macro_from_tree_sitter(input: TokenStream) -> TokenStream {
                 impl #impl_generics ::parser_common::Extract for #ident #ty_generics #where_clause {
                     fn extract(node: tree_sitter::Node<'_>, source: &[u8]) -> Result<Self, ::parser_common::ExtractError<Self>> {
                         if node.is_missing() {
-                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::missing_error(node)]));
+                            return Err(::parser_common::ExtractError::Advance(vec![
+                                ::parser_common::missing_error(node),
+                            ]));
                         }
                         if node.is_error() {
-                            return Err(::parser_common::ExtractError::Advance(vec![::parser_common::parse_error(node)]));
+                            return Err(::parser_common::ExtractError::Advance(vec![
+                                ::parser_common::parse_error(node),
+                            ]));
                         }
                         match node.kind() {
                             #(#cases),*,
-                            _ => Err(::parser_common::ExtractError::Advance(vec![::parser_common::not_implemented_error(node, "enum constructor", #str_ident)])),
+                            _ => Err(::parser_common::ExtractError::Advance(vec![
+                                ::parser_common::not_implemented_error(node, "enum constructor", #str_ident),
+                            ])),
                         }
                     }
                 }
@@ -185,20 +207,6 @@ fn parse_kind(attr: &Attribute) -> Option<String> {
     } else {
         None
     }
-}
-
-fn generate_struct_value(field: &Field) -> proc_macro2::TokenStream {
-    let ty = &field.ty;
-
-    quote!(
-        if cursor.node().is_missing() {
-            Err(::parser_common::ExtractError::Advance(vec![::parser_common::missing_error(cursor.node())]))
-        } else if cursor.node().is_error() {
-            Err(::parser_common::ExtractError::Advance(vec![::parser_common::parse_error(cursor.node())]))
-        } else {
-            <#ty as ::parser_common::Extract>::extract(cursor.node(), source)
-        }
-    )
 }
 
 fn generate_enum_variant(variant: &Variant) -> proc_macro2::TokenStream {

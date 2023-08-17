@@ -4,5 +4,7 @@ use parser_macro::Extract;
 fn transform_root() {
     #[derive(Extract)]
     #[kind("simple_identifier")]
-    pub struct SimpleIdentifier(pub String);
+    pub struct SimpleIdentifier {
+        pub vals: Vec<String>,
+    }
 }
