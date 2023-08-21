@@ -4,6 +4,7 @@ members = [
     "parser",
     "parser-common",
     "parser-macro",
+    "grammar",
 ]
 
 [workspace.package]

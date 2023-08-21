@@ -1,0 +1,49 @@
+Program = _{ SOI ~ Statement* ~ EOI }
+
+Statement = { Assignment | PropertyDeceleration | IfStatement | WhileStatement | PrintStatement }
+
+Assignment = { Identifier ~ "=" ~ Expression ~ ";" }
+
+Qualifier = { "var" | "let" }
+PropertyDeceleration = { Qualifier ~ Identifier ~ ( ":" ~ Identifier )? ~ "=" ~ Expression ~ ";" }
+
+IfStatement = { "if" ~ "(" ~ Expression ~ ")" ~ Statement ~ ("else" ~ Statement)? }
+
+WhileStatement = { "while" ~ "(" ~ Expression ~ ")" ~ Statement }
+
+PrintStatement = { "print" ~ "(" ~ Expression ~ ")" ~ ";" }
+
+Expression = { OrExpression }
+
+OrExpression = { AndExpression ~ ("||" ~ AndExpression)* }
+
+AndExpression = { EqualityExpression ~ ("&&" ~ EqualityExpression)* }
+
+EqualityOperator = { "==" | "!=" }
+EqualityExpression = { ComparisonExpression ~ (EqualityOperator ~ ComparisonExpression)? }
+
+ComparisonOperator = { "<" | ">" | "<=" | ">=" }
+ComparisonExpression = { TermExpression ~ (ComparisonOperator ~ TermExpression)? }
+
+TermOperator = { "+" | "-" }
+TermExpression = { FactorExpression ~ (TermOperator ~ FactorExpression)* }
+
+FactorOperator = { "*" | "/" }
+FactorExpression = { UnaryExpression ~ (FactorOperator ~ UnaryExpression)* }
+
+UnaryOperator = { "!" | "-" }
+UnaryExpression = { UnaryOperator? ~ PrimaryExpression }
+
+PrimaryExpression = _{ Identifier | IntegerLiteral | BooleanLiteral | StringLiteral | "(" ~ Expression ~ ")" }
+
+Identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC)* }
+
+IntegerLiteral = @{ ASCII_DIGIT | ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
+
+BooleanLiteral = { "true" | "false" }
+
+StringLiteral = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
+
+COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
