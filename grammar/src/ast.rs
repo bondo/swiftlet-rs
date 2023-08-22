@@ -80,12 +80,14 @@ pub enum UnaryOperator {
 pub enum FactorOperator {
     Multiply,
     Divide,
+    Modulo,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
-    Or(Vec<Expression>),
-    And(Vec<Expression>),
+    Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
+    Or(Box<Expression>, Box<Expression>),
+    And(Box<Expression>, Box<Expression>),
     Equality(Box<Expression>, EqualityOperator, Box<Expression>),
     Comparison(Box<Expression>, ComparisonOperator, Box<Expression>),
     Term(Box<Expression>, TermOperator, Box<Expression>),

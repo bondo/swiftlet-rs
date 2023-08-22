@@ -1,4 +1,8 @@
-use pest::{iterators::Pair, Parser};
+use pest::{
+    iterators::Pair,
+    pratt_parser::{Assoc, Op, PrattParser},
+    Parser,
+};
 
 mod ast;
 
@@ -17,7 +21,7 @@ pub fn parse(input: &str) -> Result<Program, Error> {
     let pairs = SwiftletParser::parse(Rule::Program, input)?;
     for pair in pairs {
         match pair.as_rule() {
-            Rule::Statement => statements.push(build_statement_from_pair(pair)),
+            Rule::Stmt => statements.push(build_statement_from_pair(pair)),
             Rule::EOI => {}
             r => panic!("Unexpected rule in program: {r:?}"),
         }
@@ -26,19 +30,19 @@ pub fn parse(input: &str) -> Result<Program, Error> {
 }
 
 fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
-    debug_assert_eq!(pair.as_rule(), Rule::Statement);
+    debug_assert_eq!(pair.as_rule(), Rule::Stmt);
 
     let mut pairs = pair.into_inner();
     let pair = pairs.next().unwrap();
 
     let stmt = match pair.as_rule() {
-        Rule::Assignment => Statement::Assignment(build_assignment_from_pair(pair)),
-        Rule::PropertyDeceleration => {
+        Rule::Assign => Statement::Assignment(build_assignment_from_pair(pair)),
+        Rule::PropertyDecl => {
             Statement::PropertyDeceleration(build_property_deceleration_from_pair(pair))
         }
-        Rule::IfStatement => todo!(),
-        Rule::WhileStatement => todo!(),
-        Rule::PrintStatement => {
+        Rule::If => todo!(),
+        Rule::While => todo!(),
+        Rule::Print => {
             let mut pairs = pair.into_inner();
             let expression = build_expression_from_pair(pairs.next().unwrap());
 
@@ -55,7 +59,7 @@ fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
 }
 
 fn build_assignment_from_pair(pair: Pair<Rule>) -> Assignment {
-    debug_assert_eq!(pair.as_rule(), Rule::Assignment);
+    debug_assert_eq!(pair.as_rule(), Rule::Assign);
 
     let mut pairs = pair.into_inner();
     let identifier = build_identifier_from_pair(pairs.next().unwrap());
@@ -70,17 +74,17 @@ fn build_assignment_from_pair(pair: Pair<Rule>) -> Assignment {
 }
 
 fn build_property_deceleration_from_pair(pair: Pair<Rule>) -> PropertyDeceleration {
-    debug_assert_eq!(pair.as_rule(), Rule::PropertyDeceleration);
+    debug_assert_eq!(pair.as_rule(), Rule::PropertyDecl);
 
     let mut pairs = pair.into_inner();
-    let qualifier = match pairs.next().unwrap().as_str() {
-        "var" => Qualifier::Var,
-        "let" => Qualifier::Let,
-        v => panic!("Unexpected qualifier value: '{v}'"),
+    let qualifier = match pairs.next().unwrap().as_rule() {
+        Rule::Var => Qualifier::Var,
+        Rule::Let => Qualifier::Let,
+        v => panic!("Unexpected qualifier value: '{v:?}'"),
     };
     let identifier = build_identifier_from_pair(pairs.next().unwrap());
 
-    if pairs.peek().unwrap().as_rule() == Rule::Identifier {
+    if pairs.peek().unwrap().as_rule() == Rule::Ident {
         let ty = build_identifier_from_pair(pairs.next().unwrap());
         let expression = build_expression_from_pair(pairs.next().unwrap());
 
@@ -107,143 +111,181 @@ fn build_property_deceleration_from_pair(pair: Pair<Rule>) -> PropertyDecelerati
 }
 
 fn build_expression_from_pair(pair: Pair<Rule>) -> Expression {
-    match pair.as_rule() {
-        Rule::Expression => {
-            let mut pairs = pair.into_inner();
-            let pair = pairs.next().unwrap();
-            let expr = build_expression_from_pair(pair);
-            debug_assert_eq!(pairs.next(), None);
-            expr
-        }
-        Rule::OrExpression => {
-            let exprs: Vec<Expression> =
-                pair.into_inner().map(build_expression_from_pair).collect();
-            if exprs.len() == 1 {
-                exprs[0].clone()
-            } else {
-                Expression::Or(exprs)
-            }
-        }
-        Rule::AndExpression => {
-            let exprs: Vec<Expression> =
-                pair.into_inner().map(build_expression_from_pair).collect();
-            if exprs.len() == 1 {
-                exprs[0].clone()
-            } else {
-                Expression::And(exprs)
-            }
-        }
-        Rule::EqualityExpression => {
-            let mut pairs = pair.into_inner();
-            let left = build_expression_from_pair(pairs.next().unwrap());
+    debug_assert_eq!(pair.as_rule(), Rule::Expr);
 
-            if let Some(operator) = pairs.next() {
-                debug_assert_eq!(operator.as_rule(), Rule::EqualityOperator);
+    let mut pairs = pair.into_inner().rev();
 
-                let operator = match operator.as_str() {
-                    "==" => EqualityOperator::Equal,
-                    "!=" => EqualityOperator::NotEqual,
-                    v => panic!("Unexpected equality operator value: '{v}'"),
-                };
+    let mut expression = build_pratt_expression_from_pair(pairs.next().unwrap());
 
-                let right = build_expression_from_pair(pairs.next().unwrap());
+    while let Some(pair) = pairs.next() {
+        let if_branch = build_pratt_expression_from_pair(pair);
+        let condition = build_pratt_expression_from_pair(pairs.next().unwrap());
 
-                debug_assert_eq!(pairs.next(), None);
-
-                Expression::Equality(Box::new(left), operator, Box::new(right))
-            } else {
-                return left;
-            }
-        }
-        Rule::ComparisonExpression => {
-            let mut pairs = pair.into_inner();
-            let left = build_expression_from_pair(pairs.next().unwrap());
-
-            if let Some(operator) = pairs.next() {
-                debug_assert_eq!(operator.as_rule(), Rule::ComparisonOperator);
-
-                let operator = match operator.as_str() {
-                    "<" => ComparisonOperator::LessThan,
-                    "<=" => ComparisonOperator::LessThanOrEqual,
-                    ">" => ComparisonOperator::GreaterThan,
-                    ">=" => ComparisonOperator::GreaterThanOrEqual,
-                    v => panic!("Unexpected comparison operator value: '{v}'"),
-                };
-
-                let right = build_expression_from_pair(pairs.next().unwrap());
-
-                debug_assert_eq!(pairs.next(), None);
-
-                Expression::Comparison(Box::new(left), operator, Box::new(right))
-            } else {
-                return left;
-            }
-        }
-        Rule::TermExpression => {
-            let mut pairs = pair.into_inner().rev();
-
-            let mut right = build_expression_from_pair(pairs.next().unwrap());
-
-            while let Some(operator) = pairs.next() {
-                debug_assert_eq!(operator.as_rule(), Rule::TermOperator);
-
-                let operator = match operator.as_str() {
-                    "+" => TermOperator::Plus,
-                    "-" => TermOperator::Minus,
-                    v => panic!("Unexpected term operator value: '{v}'"),
-                };
-
-                let left = build_expression_from_pair(pairs.next().unwrap());
-
-                right = Expression::Term(Box::new(left), operator, Box::new(right));
-            }
-
-            right
-        }
-        Rule::FactorExpression => {
-            let mut pairs = pair.into_inner().rev();
-
-            let mut right = build_expression_from_pair(pairs.next().unwrap());
-
-            while let Some(operator) = pairs.next() {
-                debug_assert_eq!(operator.as_rule(), Rule::FactorOperator);
-
-                let operator = match operator.as_str() {
-                    "*" => FactorOperator::Multiply,
-                    "/" => FactorOperator::Divide,
-                    v => panic!("Unexpected factor operator value: '{v}'"),
-                };
-
-                let left = build_expression_from_pair(pairs.next().unwrap());
-
-                right = Expression::Factor(Box::new(left), operator, Box::new(right));
-            }
-
-            right
-        }
-        Rule::UnaryExpression => todo!(),
-        Rule::Identifier => {
-            let identifier = pair.as_str().to_string();
-            Expression::Identifier(identifier)
-        }
-        Rule::IntegerLiteral => {
-            let value = pair.as_str().parse::<u64>().unwrap();
-            Expression::IntegerLiteral(value)
-        }
-        Rule::BooleanLiteral => todo!(),
-        Rule::StringLiteral => todo!(),
-        r => panic!("Unexpected rule in expression: {r:?}"),
+        expression = Expression::Conditional(
+            Box::new(condition),
+            Box::new(if_branch),
+            Box::new(expression),
+        )
     }
+
+    expression
+}
+
+fn build_pratt_expression_from_pair(pair: Pair<Rule>) -> Expression {
+    debug_assert_eq!(pair.as_rule(), Rule::PrattExpr);
+
+    let pratt = PrattParser::new()
+        .op(Op::infix(Rule::Or, Assoc::Left))
+        .op(Op::infix(Rule::And, Assoc::Left))
+        .op(Op::infix(Rule::Eq, Assoc::Left) | Op::infix(Rule::Ne, Assoc::Left))
+        .op(Op::infix(Rule::Lt, Assoc::Left)
+            | Op::infix(Rule::Le, Assoc::Left)
+            | Op::infix(Rule::Gt, Assoc::Left)
+            | Op::infix(Rule::Ge, Assoc::Left))
+        .op(Op::infix(Rule::Add, Assoc::Left) | Op::infix(Rule::Sub, Assoc::Left))
+        .op(Op::infix(Rule::Mul, Assoc::Left)
+            | Op::infix(Rule::Div, Assoc::Left)
+            | Op::infix(Rule::Rem, Assoc::Left))
+        .op(Op::prefix(Rule::Neg) | Op::prefix(Rule::Not));
+
+    pratt
+        .map_primary(|primary| match primary.as_rule() {
+            Rule::Int => Expression::IntegerLiteral(primary.as_str().parse().unwrap()),
+            Rule::Str => Expression::StringLiteral({
+                let s = primary.as_str();
+                s[1..s.len() - 1].to_string()
+            }),
+            Rule::True => Expression::BooleanLiteral(true),
+            Rule::False => Expression::BooleanLiteral(false),
+            Rule::Ident => Expression::Identifier(build_identifier_from_pair(primary)),
+            Rule::Expr => build_expression_from_pair(primary),
+            r => panic!("Unexpected rule in primary expression: {r:?}"),
+        })
+        .map_prefix(|op, rhs| match op.as_rule() {
+            Rule::Neg => Expression::Unary(UnaryOperator::Negate, Box::new(rhs)),
+            Rule::Not => Expression::Unary(UnaryOperator::Not, Box::new(rhs)),
+            r => panic!("Unexpected rule in prefix expression: {r:?}"),
+        })
+        .map_infix(|lhs, op, rhs| match op.as_rule() {
+            Rule::Or => Expression::Or(Box::new(lhs), Box::new(rhs)),
+            Rule::And => Expression::And(Box::new(lhs), Box::new(rhs)),
+            Rule::Eq => Expression::Equality(Box::new(lhs), EqualityOperator::Equal, Box::new(rhs)),
+            Rule::Ne => {
+                Expression::Equality(Box::new(lhs), EqualityOperator::NotEqual, Box::new(rhs))
+            }
+            Rule::Lt => {
+                Expression::Comparison(Box::new(lhs), ComparisonOperator::LessThan, Box::new(rhs))
+            }
+            Rule::Le => Expression::Comparison(
+                Box::new(lhs),
+                ComparisonOperator::LessThanOrEqual,
+                Box::new(rhs),
+            ),
+            Rule::Gt => Expression::Comparison(
+                Box::new(lhs),
+                ComparisonOperator::GreaterThan,
+                Box::new(rhs),
+            ),
+            Rule::Ge => Expression::Comparison(
+                Box::new(lhs),
+                ComparisonOperator::GreaterThanOrEqual,
+                Box::new(rhs),
+            ),
+            Rule::Add => Expression::Term(Box::new(lhs), TermOperator::Plus, Box::new(rhs)),
+            Rule::Sub => Expression::Term(Box::new(lhs), TermOperator::Minus, Box::new(rhs)),
+            Rule::Mul => Expression::Factor(Box::new(lhs), FactorOperator::Multiply, Box::new(rhs)),
+            Rule::Div => Expression::Factor(Box::new(lhs), FactorOperator::Divide, Box::new(rhs)),
+            Rule::Rem => Expression::Factor(Box::new(lhs), FactorOperator::Modulo, Box::new(rhs)),
+            r => panic!("Unexpected rule in infix expression: {r:?}"),
+        })
+        .parse(pair.into_inner())
 }
 
 fn build_identifier_from_pair(pair: Pair<Rule>) -> String {
-    debug_assert_eq!(pair.as_rule(), Rule::Identifier);
+    debug_assert_eq!(pair.as_rule(), Rule::Ident);
     pair.as_str().to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expr_1() {
+        let expression =
+            parse(r#"let foo = 5 || !"20" < true && (john - 4) * -2 ? 42 : 19 < 30 ? 14 : 9;"#)
+                .unwrap_or_else(|e| panic!("\n{e}\n"));
+
+        assert_eq!(
+            expression,
+            Program {
+                statements: vec![Statement::PropertyDeceleration(PropertyDeceleration {
+                    qualifier: Qualifier::Let,
+                    identifier: "foo".to_string(),
+                    ty: None,
+                    expression: Expression::Conditional(
+                        Box::new(Expression::Or(
+                            Box::new(Expression::IntegerLiteral(5)),
+                            Box::new(Expression::And(
+                                Box::new(Expression::Comparison(
+                                    Box::new(Expression::Unary(
+                                        UnaryOperator::Not,
+                                        Box::new(Expression::StringLiteral("20".to_string()))
+                                    )),
+                                    ComparisonOperator::LessThan,
+                                    Box::new(Expression::BooleanLiteral(true))
+                                )),
+                                Box::new(Expression::Factor(
+                                    Box::new(Expression::Term(
+                                        Box::new(Expression::Identifier("john".to_string())),
+                                        TermOperator::Minus,
+                                        Box::new(Expression::IntegerLiteral(4))
+                                    )),
+                                    FactorOperator::Multiply,
+                                    Box::new(Expression::Unary(
+                                        UnaryOperator::Negate,
+                                        Box::new(Expression::IntegerLiteral(2))
+                                    ))
+                                ))
+                            ))
+                        )),
+                        Box::new(Expression::IntegerLiteral(42)),
+                        Box::new(Expression::Conditional(
+                            Box::new(Expression::Comparison(
+                                Box::new(Expression::IntegerLiteral(19)),
+                                ComparisonOperator::LessThan,
+                                Box::new(Expression::IntegerLiteral(30))
+                            )),
+                            Box::new(Expression::IntegerLiteral(14)),
+                            Box::new(Expression::IntegerLiteral(9))
+                        ))
+                    )
+                })]
+            }
+        );
+    }
+
+    #[test]
+    fn expr_2() {
+        let expression = parse(r#"print(a > b < c);"#).unwrap_or_else(|e| panic!("\n{e}\n"));
+
+        assert_eq!(
+            expression,
+            Program {
+                statements: vec![Statement::PrintStatement(PrintStatement {
+                    expression: Expression::Comparison(
+                        Box::new(Expression::Comparison(
+                            Box::new(Expression::Identifier("a".to_string())),
+                            ComparisonOperator::GreaterThan,
+                            Box::new(Expression::Identifier("b".to_string()))
+                        )),
+                        ComparisonOperator::LessThan,
+                        Box::new(Expression::Identifier("c".to_string()))
+                    )
+                })]
+            }
+        );
+    }
 
     #[test]
     fn example_1() {

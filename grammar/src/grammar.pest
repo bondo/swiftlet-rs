@@ -1,49 +1,43 @@
-Program = _{ SOI ~ Statement* ~ EOI }
-
-Statement = { Assignment | PropertyDeceleration | IfStatement | WhileStatement | PrintStatement }
-
-Assignment = { Identifier ~ "=" ~ Expression ~ ";" }
-
-Qualifier = { "var" | "let" }
-PropertyDeceleration = { Qualifier ~ Identifier ~ ( ":" ~ Identifier )? ~ "=" ~ Expression ~ ";" }
-
-IfStatement = { "if" ~ "(" ~ Expression ~ ")" ~ Statement ~ ("else" ~ Statement)? }
-
-WhileStatement = { "while" ~ "(" ~ Expression ~ ")" ~ Statement }
-
-PrintStatement = { "print" ~ "(" ~ Expression ~ ")" ~ ";" }
-
-Expression = { OrExpression }
-
-OrExpression = { AndExpression ~ ("||" ~ AndExpression)* }
-
-AndExpression = { EqualityExpression ~ ("&&" ~ EqualityExpression)* }
-
-EqualityOperator = { "==" | "!=" }
-EqualityExpression = { ComparisonExpression ~ (EqualityOperator ~ ComparisonExpression)? }
-
-ComparisonOperator = { "<" | ">" | "<=" | ">=" }
-ComparisonExpression = { TermExpression ~ (ComparisonOperator ~ TermExpression)? }
-
-TermOperator = { "+" | "-" }
-TermExpression = { FactorExpression ~ (TermOperator ~ FactorExpression)* }
-
-FactorOperator = { "*" | "/" }
-FactorExpression = { UnaryExpression ~ (FactorOperator ~ UnaryExpression)* }
-
-UnaryOperator = { "!" | "-" }
-UnaryExpression = { UnaryOperator? ~ PrimaryExpression }
-
-PrimaryExpression = _{ Identifier | IntegerLiteral | BooleanLiteral | StringLiteral | "(" ~ Expression ~ ")" }
-
-Identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC)* }
-
-IntegerLiteral = @{ ASCII_DIGIT | ASCII_NONZERO_DIGIT ~ (ASCII_DIGIT)* }
-
-BooleanLiteral = { "true" | "false" }
-
-StringLiteral = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
-
 WHITESPACE = _{ " " | "\n" | "\t" | "\r" }
-
 COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
+
+Program = _{ SOI ~ Stmt* ~ EOI }
+
+Stmt           =  { Assign | PropertyDecl | If | While | Print }
+  Assign       =  { Ident ~ "=" ~ Expr ~ ";" }
+  PropertyDecl =  { Qual ~ Ident ~ ( ":" ~ Ident )? ~ "=" ~ Expr ~ ";" }
+    Qual       = _{ Var | Let }
+      Var      =  { "var" }
+      Let      =  { "let" }
+  If           =  { "if" ~ "(" ~ Expr ~ ")" ~ Stmt ~ ("else" ~ Stmt)? }
+  While        =  { "while" ~ "(" ~ Expr ~ ")" ~ Stmt }
+  Print        =  { "print" ~ "(" ~ Expr ~ ")" ~ ";" }
+
+Expr          =   { PrattExpr ~ ( "?" ~ PrattExpr ~ ":" ~ PrattExpr)* }
+PrattExpr     =   { Prefix* ~ Primary ~ (Infix ~ Prefix* ~ Primary )* }
+  Infix       =  _{ Or | And | Eq | Ne | Lt | Le | Gt | Ge | Add | Sub | Mul | Div | Rem }
+    Or        =   { "||" }
+    And       =   { "&&" }
+    Eq        =   { "==" }
+    Ne        =   { "!=" }
+    Lt        =   { "<" }
+    Le        =   { "<=" }
+    Gt        =   { ">" }
+    Ge        =   { ">=" }
+    Add       =   { "+" }
+    Sub       =   { "-" }
+    Mul       =   { "*" }
+    Div       =   { "/" }
+    Rem       =   { "%" }
+  Prefix      =  _{ Neg | Not }
+    Neg       =   { "-" }
+    Not       =   { "!" }
+  Primary     =  _{ Literal | Ident | "(" ~ Expr ~ ")" }
+    Literal   =  _{ Int | Str | Bool }
+      Int     =  @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT+ | ASCII_DIGIT }
+      Str     =  @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+      Bool    =  _{ True | False }
+        True  =   { "true" }
+        False =   { "false" }
+
+Ident = @{ ASCII_ALPHA ~ (ASCII_ALPHA | ASCII_DIGIT)* }
