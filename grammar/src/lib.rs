@@ -115,11 +115,11 @@ fn build_expression_from_pair(pair: Pair<Rule>) -> Expression {
 
     let mut pairs = pair.into_inner().rev();
 
-    let mut expression = build_pratt_expression_from_pair(pairs.next().unwrap());
+    let mut expression = build_or_expression_from_pair(pairs.next().unwrap());
 
     while let Some(pair) = pairs.next() {
-        let if_branch = build_pratt_expression_from_pair(pair);
-        let condition = build_pratt_expression_from_pair(pairs.next().unwrap());
+        let if_branch = build_or_expression_from_pair(pair);
+        let condition = build_or_expression_from_pair(pairs.next().unwrap());
 
         expression = Expression::Conditional(
             Box::new(condition),
@@ -131,17 +131,87 @@ fn build_expression_from_pair(pair: Pair<Rule>) -> Expression {
     expression
 }
 
+fn build_or_expression_from_pair(pair: Pair<Rule>) -> Expression {
+    debug_assert_eq!(pair.as_rule(), Rule::OrExpr);
+
+    let mut pairs = pair.into_inner();
+
+    let mut expr = build_and_expression_from_pair(pairs.next().unwrap());
+
+    while let Some(rhs) = pairs.next() {
+        expr = Expression::Or(
+            Box::new(expr),
+            Box::new(build_and_expression_from_pair(rhs)),
+        );
+    }
+
+    expr
+}
+
+fn build_and_expression_from_pair(pair: Pair<Rule>) -> Expression {
+    debug_assert_eq!(pair.as_rule(), Rule::AndExpr);
+
+    let mut pairs = pair.into_inner();
+
+    let mut expr = build_eq_expression_from_pair(pairs.next().unwrap());
+
+    while let Some(rhs) = pairs.next() {
+        expr = Expression::And(Box::new(expr), Box::new(build_eq_expression_from_pair(rhs)))
+    }
+
+    expr
+}
+
+fn build_eq_expression_from_pair(pair: Pair<Rule>) -> Expression {
+    debug_assert_eq!(pair.as_rule(), Rule::EqExpr);
+
+    let mut pairs = pair.into_inner();
+
+    let mut expr = build_cmp_expression_from_pair(pairs.next().unwrap());
+
+    if let Some(op) = pairs.next() {
+        let op = match op.as_rule() {
+            Rule::Eq => EqualityOperator::Equal,
+            Rule::Ne => EqualityOperator::NotEqual,
+            r => panic!("Unexpected equality operator: {r:?}"),
+        };
+
+        let rhs = build_cmp_expression_from_pair(pairs.next().unwrap());
+
+        expr = Expression::Equality(Box::new(expr), op, Box::new(rhs));
+    }
+
+    expr
+}
+
+fn build_cmp_expression_from_pair(pair: Pair<Rule>) -> Expression {
+    debug_assert_eq!(pair.as_rule(), Rule::CmpExpr);
+
+    let mut pairs = pair.into_inner();
+
+    let mut expr = build_pratt_expression_from_pair(pairs.next().unwrap());
+
+    if let Some(op) = pairs.next() {
+        let op = match op.as_rule() {
+            Rule::Lt => ComparisonOperator::LessThan,
+            Rule::Le => ComparisonOperator::LessThanOrEqual,
+            Rule::Gt => ComparisonOperator::GreaterThan,
+            Rule::Ge => ComparisonOperator::GreaterThanOrEqual,
+            r => panic!("Unexpected comparison operator: {r:?}"),
+        };
+
+        let rhs = build_pratt_expression_from_pair(pairs.next().unwrap());
+
+        expr = Expression::Comparison(Box::new(expr), op, Box::new(rhs));
+    }
+
+    expr
+}
+
 fn build_pratt_expression_from_pair(pair: Pair<Rule>) -> Expression {
     debug_assert_eq!(pair.as_rule(), Rule::PrattExpr);
 
     let pratt = PrattParser::new()
-        .op(Op::infix(Rule::Or, Assoc::Left))
-        .op(Op::infix(Rule::And, Assoc::Left))
-        .op(Op::infix(Rule::Eq, Assoc::Left) | Op::infix(Rule::Ne, Assoc::Left))
-        .op(Op::infix(Rule::Lt, Assoc::Left)
-            | Op::infix(Rule::Le, Assoc::Left)
-            | Op::infix(Rule::Gt, Assoc::Left)
-            | Op::infix(Rule::Ge, Assoc::Left))
         .op(Op::infix(Rule::Add, Assoc::Left) | Op::infix(Rule::Sub, Assoc::Left))
         .op(Op::infix(Rule::Mul, Assoc::Left)
             | Op::infix(Rule::Div, Assoc::Left)
@@ -167,30 +237,6 @@ fn build_pratt_expression_from_pair(pair: Pair<Rule>) -> Expression {
             r => panic!("Unexpected rule in prefix expression: {r:?}"),
         })
         .map_infix(|lhs, op, rhs| match op.as_rule() {
-            Rule::Or => Expression::Or(Box::new(lhs), Box::new(rhs)),
-            Rule::And => Expression::And(Box::new(lhs), Box::new(rhs)),
-            Rule::Eq => Expression::Equality(Box::new(lhs), EqualityOperator::Equal, Box::new(rhs)),
-            Rule::Ne => {
-                Expression::Equality(Box::new(lhs), EqualityOperator::NotEqual, Box::new(rhs))
-            }
-            Rule::Lt => {
-                Expression::Comparison(Box::new(lhs), ComparisonOperator::LessThan, Box::new(rhs))
-            }
-            Rule::Le => Expression::Comparison(
-                Box::new(lhs),
-                ComparisonOperator::LessThanOrEqual,
-                Box::new(rhs),
-            ),
-            Rule::Gt => Expression::Comparison(
-                Box::new(lhs),
-                ComparisonOperator::GreaterThan,
-                Box::new(rhs),
-            ),
-            Rule::Ge => Expression::Comparison(
-                Box::new(lhs),
-                ComparisonOperator::GreaterThanOrEqual,
-                Box::new(rhs),
-            ),
             Rule::Add => Expression::Term(Box::new(lhs), TermOperator::Plus, Box::new(rhs)),
             Rule::Sub => Expression::Term(Box::new(lhs), TermOperator::Minus, Box::new(rhs)),
             Rule::Mul => Expression::Factor(Box::new(lhs), FactorOperator::Multiply, Box::new(rhs)),
@@ -267,20 +313,23 @@ mod tests {
 
     #[test]
     fn expr_2() {
-        let expression = parse(r#"print(a > b < c);"#).unwrap_or_else(|e| panic!("\n{e}\n"));
+        let expression = parse(r#"print(a > b && b < c);"#).unwrap_or_else(|e| panic!("\n{e}\n"));
 
         assert_eq!(
             expression,
             Program {
                 statements: vec![Statement::PrintStatement(PrintStatement {
-                    expression: Expression::Comparison(
+                    expression: Expression::And(
                         Box::new(Expression::Comparison(
                             Box::new(Expression::Identifier("a".to_string())),
                             ComparisonOperator::GreaterThan,
                             Box::new(Expression::Identifier("b".to_string()))
                         )),
-                        ComparisonOperator::LessThan,
-                        Box::new(Expression::Identifier("c".to_string()))
+                        Box::new(Expression::Comparison(
+                            Box::new(Expression::Identifier("b".to_string())),
+                            ComparisonOperator::LessThan,
+                            Box::new(Expression::Identifier("c".to_string()))
+                        ))
                     )
                 })]
             }

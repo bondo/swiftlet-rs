@@ -13,17 +13,21 @@ Stmt           =  { Assign | PropertyDecl | If | While | Print }
   While        =  { "while" ~ "(" ~ Expr ~ ")" ~ Stmt }
   Print        =  { "print" ~ "(" ~ Expr ~ ")" ~ ";" }
 
-Expr          =   { PrattExpr ~ ( "?" ~ PrattExpr ~ ":" ~ PrattExpr)* }
-PrattExpr     =   { Prefix* ~ Primary ~ (Infix ~ Prefix* ~ Primary )* }
-  Infix       =  _{ Or | And | Eq | Ne | Lt | Le | Gt | Ge | Add | Sub | Mul | Div | Rem }
-    Or        =   { "||" }
-    And       =   { "&&" }
+Expr          =   { OrExpr ~ ( "?" ~ OrExpr ~ ":" ~ OrExpr)* }
+OrExpr        =   { AndExpr ~ ( "||" ~ AndExpr)* }
+AndExpr       =   { EqExpr ~ ( "&&" ~ EqExpr)* }
+EqExpr        =   { CmpExpr ~ ( EqOp ~ CmpExpr )? }
+  EqOp        =  _{ Eq | Ne }
     Eq        =   { "==" }
     Ne        =   { "!=" }
+CmpExpr       =   { PrattExpr ~ ( CmpOp ~ PrattExpr)? }
+  CmpOp       =  _{ Ne | Lt | Le | Gt }
     Lt        =   { "<" }
     Le        =   { "<=" }
     Gt        =   { ">" }
     Ge        =   { ">=" }
+PrattExpr     =   { Prefix* ~ Primary ~ (Infix ~ Prefix* ~ Primary )* }
+  Infix       =  _{ Add | Sub | Mul | Div | Rem }
     Add       =   { "+" }
     Sub       =   { "-" }
     Mul       =   { "*" }
