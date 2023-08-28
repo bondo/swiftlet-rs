@@ -1,6 +1,7 @@
 [workspace]
 members = [
     "bin",
+    "interpreter",
     "parser",
     "parser-common",
     "parser-macro",

@@ -41,7 +41,18 @@ fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
             Statement::PropertyDeceleration(build_property_deceleration_from_pair(pair))
         }
         Rule::If => todo!(),
-        Rule::While => todo!(),
+        Rule::While => {
+            let mut pairs = pair.into_inner();
+            let condition = build_expression_from_pair(pairs.next().unwrap());
+            let body = build_statement_from_pair(pairs.next().unwrap());
+
+            debug_assert_eq!(pairs.next(), None);
+
+            Statement::WhileStatement(WhileStatement {
+                condition,
+                body: Box::new(body),
+            })
+        }
         Rule::Print => {
             let mut pairs = pair.into_inner();
             let expression = build_expression_from_pair(pairs.next().unwrap());
@@ -49,6 +60,13 @@ fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
             debug_assert_eq!(pairs.next(), None);
 
             Statement::PrintStatement(PrintStatement { expression })
+        }
+        Rule::Block => {
+            let statements = pair
+                .into_inner()
+                .map(|p| build_statement_from_pair(p))
+                .collect();
+            Statement::BlockStatement(BlockStatement { statements })
         }
         r => panic!("Unexpected rule in statement: {r:?}"),
     };

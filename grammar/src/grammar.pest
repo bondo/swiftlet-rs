@@ -3,7 +3,7 @@ COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
 
 Program = _{ SOI ~ Stmt* ~ EOI }
 
-Stmt           =  { Assign | PropertyDecl | If | While | Print }
+Stmt           =  { Assign | PropertyDecl | If | While | Print | Block }
   Assign       =  { Ident ~ "=" ~ Expr ~ ";" }
   PropertyDecl =  { Qual ~ Ident ~ ( ":" ~ Ident )? ~ "=" ~ Expr ~ ";" }
     Qual       = _{ Var | Let }
@@ -12,6 +12,7 @@ Stmt           =  { Assign | PropertyDecl | If | While | Print }
   If           =  { "if" ~ "(" ~ Expr ~ ")" ~ Stmt ~ ("else" ~ Stmt)? }
   While        =  { "while" ~ "(" ~ Expr ~ ")" ~ Stmt }
   Print        =  { "print" ~ "(" ~ Expr ~ ")" ~ ";" }
+  Block        =  { "{" ~ Stmt* ~ "}" }
 
 Expr          =   { OrExpr ~ ( "?" ~ OrExpr ~ ":" ~ OrExpr)* }
 OrExpr        =   { AndExpr ~ ( "||" ~ AndExpr)* }

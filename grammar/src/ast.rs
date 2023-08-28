@@ -10,6 +10,7 @@ pub enum Statement {
     IfStatement(IfStatement),
     WhileStatement(WhileStatement),
     PrintStatement(PrintStatement),
+    BlockStatement(BlockStatement),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -48,6 +49,11 @@ pub struct WhileStatement {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PrintStatement {
     pub expression: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
