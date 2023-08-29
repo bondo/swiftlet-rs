@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc, sync::RwLock};
 
-use parser::*;
+use parser::ast::*;
 
 #[derive(Debug, PartialEq, Clone)]
 enum ExpressionValue {

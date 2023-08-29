@@ -4,9 +4,9 @@ use pest::{
     Parser,
 };
 
-mod ast;
+pub mod ast;
 
-pub use ast::*;
+use ast::*;
 
 #[derive(pest_derive::Parser)]
 #[grammar = "grammar.pest"]
