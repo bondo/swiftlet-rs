@@ -39,13 +39,13 @@ fn build_statements_from_pair(pair: Pair<Rule>) -> Vec<Statement> {
         Rule::Assign => vec![Statement::Assignment(build_assignment_from_pair(pair))],
         Rule::PropertyDecl => build_property_decelerations_from_pair(pair)
             .into_iter()
-            .map(|p| Statement::PropertyDeceleration(p))
+            .map(Statement::PropertyDeceleration)
             .collect(),
         Rule::StructDecl => {
             let mut pairs = pair.into_inner();
             let name = build_identifier_from_pair(pairs.next().unwrap());
             let properties = pairs
-                .flat_map(|p| build_property_decelerations_from_pair(p))
+                .flat_map(build_property_decelerations_from_pair)
                 .collect();
 
             vec![Statement::StructDeceleration(StructDeceleration {
@@ -94,7 +94,7 @@ fn build_statements_from_pair(pair: Pair<Rule>) -> Vec<Statement> {
         Rule::Block => {
             let statements = pair
                 .into_inner()
-                .flat_map(|p| build_statements_from_pair(p))
+                .flat_map(build_statements_from_pair)
                 .collect();
             vec![Statement::BlockStatement(BlockStatement { statements })]
         }
@@ -188,7 +188,7 @@ fn build_or_expression_from_pair(pair: Pair<Rule>) -> Expression {
 
     let mut expr = build_and_expression_from_pair(pairs.next().unwrap());
 
-    while let Some(rhs) = pairs.next() {
+    for rhs in pairs {
         expr = Expression::Or(
             Box::new(expr),
             Box::new(build_and_expression_from_pair(rhs)),
@@ -205,7 +205,7 @@ fn build_and_expression_from_pair(pair: Pair<Rule>) -> Expression {
 
     let mut expr = build_eq_expression_from_pair(pairs.next().unwrap());
 
-    while let Some(rhs) = pairs.next() {
+    for rhs in pairs {
         expr = Expression::And(Box::new(expr), Box::new(build_eq_expression_from_pair(rhs)))
     }
 
@@ -283,7 +283,7 @@ fn build_pratt_expression_from_pair(pair: Pair<Rule>) -> Expression {
                 let mut expr =
                     Expression::Identifier(build_identifier_from_pair(pairs.next().unwrap()));
 
-                while let Some(pair) = pairs.next() {
+                for pair in pairs {
                     match pair.as_rule() {
                         Rule::Args => {
                             let mut pairs = pair.into_inner();

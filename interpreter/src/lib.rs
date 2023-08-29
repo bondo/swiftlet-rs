@@ -32,7 +32,7 @@ struct Environment {
 impl Environment {
     fn new(parent: Option<Environment>) -> Self {
         Self {
-            parent: parent.map(|p| Rc::new(p)),
+            parent: parent.map(Rc::new),
             decls: Rc::new(RwLock::new(HashMap::new())),
         }
     }
@@ -47,7 +47,7 @@ impl Environment {
         if let Some(parent) = &self.parent {
             return parent.get(name);
         }
-        return Err(format!("Identifier {name} not found"));
+        Err(format!("Identifier {name} not found"))
     }
 
     fn declare(
@@ -134,14 +134,14 @@ impl Interpretable for Statement {
             }) => {
                 let cond = condition.run(env)?;
                 if cond.is_truthy() {
-                    if_branch.into_iter().try_for_each(|s| s.run(env))?;
+                    if_branch.iter().try_for_each(|s| s.run(env))?;
                 } else {
-                    else_branch.into_iter().try_for_each(|s| s.run(env))?;
+                    else_branch.iter().try_for_each(|s| s.run(env))?;
                 }
             }
             Statement::WhileStatement(WhileStatement { condition, body }) => {
                 while condition.run(env)?.is_truthy() {
-                    body.into_iter().try_for_each(|s| s.run(env))?;
+                    body.iter().try_for_each(|s| s.run(env))?;
                 }
             }
             Statement::PrintStatement(PrintStatement { expression }) => {
