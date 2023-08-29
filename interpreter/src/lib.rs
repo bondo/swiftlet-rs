@@ -7,12 +7,6 @@ use std::{
 use ast::*;
 
 #[derive(Debug, PartialEq, Clone)]
-struct Callable {
-    params: Vec<String>,
-    body: BlockStatement,
-}
-
-#[derive(Debug, PartialEq, Clone)]
 struct StructDef {
     name: String,
     fields: HashSet<String>,
