@@ -1,124 +1,121 @@
-use parser_macro::Extract;
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("source_file")]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Program {
-    pub exprs: Vec<Expr>,
+    pub statements: Vec<Statement>,
 }
 
-#[derive(Debug, PartialEq, Extract)]
-pub enum Expr {
-    #[select("call_expression")]
-    CallExpression(CallExpression),
-
-    #[select("navigation_expression")]
-    NavigationExpression(NavigationExpression),
-
-    #[select("property_declaration")]
-    PropertyDeclaration(PropertyDeclaration),
-
-    #[select("simple_identifier")]
-    SimpleIdentifier(SimpleIdentifier),
-
-    #[select("integer_literal")]
-    IntegerLiteral(i32),
+#[derive(Clone, Debug, PartialEq)]
+pub enum Statement {
+    Assignment(Assignment),
+    PropertyDeceleration(PropertyDeceleration),
+    StructDeceleration(StructDeceleration),
+    IfStatement(IfStatement),
+    WhileStatement(WhileStatement),
+    PrintStatement(PrintStatement),
+    BlockStatement(BlockStatement),
 }
 
-#[derive(Debug, PartialEq, Extract)]
-#[kind("call_expression")]
-pub struct CallExpression {
-    pub callee: SimpleIdentifier,
-
-    pub arguments: CallSuffix,
+#[derive(Clone, Debug, PartialEq)]
+pub struct Assignment {
+    pub lhs: String,
+    pub rhs: Expression,
 }
 
-#[derive(Debug, PartialEq, Extract)]
-#[kind("navigation_expression")]
-pub struct NavigationExpression {
-    pub target: SimpleIdentifier,
-
-    pub suffix: NavigationSuffix,
-}
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("navigation_suffix")]
-pub struct NavigationSuffix(pub(super) SimpleIdentifier);
-
-#[derive(Debug, PartialEq, Extract)]
-pub enum CallSuffix {
-    #[select("value_arguments")]
-    ValueArguments(ValueArguments),
-}
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("value_arguments")]
-pub struct ValueArguments(pub(super) Vec<ValueArgument>);
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("value_argument")]
-pub struct ValueArgument {
-    pub label: Option<SimpleIdentifier>,
-
-    pub value: Box<Expr>,
-}
-
-#[derive(Debug, PartialEq, Extract)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Qualifier {
-    #[select("var")]
     Var,
-    #[select("let")]
     Let,
 }
 
-#[derive(Debug, PartialEq, Extract)]
-#[kind("simple_identifier")]
-pub struct SimpleIdentifier(pub(super) String);
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("pattern")]
-pub struct Pattern {
-    pub identifier: SimpleIdentifier,
-}
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("user_type")]
-pub struct UserType {
-    #[select("type_identifier")]
-    pub name: String,
-}
-
-#[derive(Debug, PartialEq, Extract)]
-pub enum TypeIdentifier {
-    #[select("user_type")]
-    UserType(UserType),
-}
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("type_annotation")]
-pub struct TypeAnnotation {
-    pub colon: ColonToken,
-
-    pub r#type: TypeIdentifier,
-}
-
-#[derive(Debug, PartialEq, Extract)]
-#[kind("property_declaration")]
-pub struct PropertyDeclaration {
+#[derive(Clone, Debug, PartialEq)]
+pub struct PropertyDeceleration {
     pub qualifier: Qualifier,
-
-    pub lhs: Pattern,
-
-    pub r#type: Option<TypeAnnotation>,
-
-    pub eq: EqToken,
-
-    pub rhs: Box<Expr>,
+    pub name: String,
+    pub ty: Option<String>,
+    pub initializer: Option<Expression>,
 }
 
-#[derive(Debug, PartialEq, Extract)]
-#[kind("=")]
-pub struct EqToken;
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructDeceleration {
+    pub name: String,
+    pub properties: Vec<PropertyDeceleration>,
+}
 
-#[derive(Debug, PartialEq, Extract)]
-#[kind(":")]
-pub struct ColonToken;
+#[derive(Clone, Debug, PartialEq)]
+pub struct IfStatement {
+    pub condition: Expression,
+    pub if_branch: Vec<Statement>,
+    pub else_branch: Vec<Statement>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct WhileStatement {
+    pub condition: Expression,
+    pub body: Vec<Statement>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct PrintStatement {
+    pub expression: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum EqualityOperator {
+    Equal,
+    NotEqual,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum ComparisonOperator {
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum TermOperator {
+    Plus,
+    Minus,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum UnaryOperator {
+    Not,
+    Negate,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum FactorOperator {
+    Multiply,
+    Divide,
+    Modulo,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Argument {
+    pub label: Option<String>,
+    pub value: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum Expression {
+    Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
+    Or(Box<Expression>, Box<Expression>),
+    And(Box<Expression>, Box<Expression>),
+    Equality(Box<Expression>, EqualityOperator, Box<Expression>),
+    Comparison(Box<Expression>, ComparisonOperator, Box<Expression>),
+    Term(Box<Expression>, TermOperator, Box<Expression>),
+    Factor(Box<Expression>, FactorOperator, Box<Expression>),
+    Unary(UnaryOperator, Box<Expression>),
+    Identifier(String),
+    Call(Box<Expression>, Vec<Argument>),
+    Navigation(Box<Expression>, String),
+    IntegerLiteral(u64),
+    BooleanLiteral(bool),
+    StringLiteral(String),
+}

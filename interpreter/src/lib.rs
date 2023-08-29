@@ -1,6 +1,6 @@
 use std::{collections::HashMap, rc::Rc, sync::RwLock};
 
-use grammar::*;
+use parser::*;
 
 #[derive(Debug, PartialEq, Clone)]
 enum ExpressionValue {
@@ -301,8 +301,8 @@ impl Interpretable for Expression {
             Expression::IntegerLiteral(v) => Ok(ExpressionValue::Number(*v as i64)),
             Expression::BooleanLiteral(v) => Ok(ExpressionValue::Boolean(*v)),
             Expression::StringLiteral(v) => Ok(ExpressionValue::String(v.clone())),
-            Expression::Invocation(_, _) => todo!(),
-            Expression::PropertyAccess(_, _) => todo!(),
+            Expression::Call(_, _) => todo!(),
+            Expression::Navigation(_, _) => todo!(),
         }
     }
 }

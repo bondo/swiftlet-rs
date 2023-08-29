@@ -5,6 +5,5 @@ edition.workspace = true
 authors.workspace = true
 
 [dependencies]
-grammar = { path = "../grammar" }
-interpreter = { path = "../interpreter" }
-parser = { path = "../parser" }
+interpreter.workspace = true
+parser.workspace = true

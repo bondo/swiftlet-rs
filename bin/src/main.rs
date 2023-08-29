@@ -1,6 +1,6 @@
 // use parser::{self, ParserError};
-use grammar::parse;
 use interpreter::run;
+use parser::parse;
 
 fn main() {
     let source = r#"
