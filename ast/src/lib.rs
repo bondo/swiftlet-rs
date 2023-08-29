@@ -115,7 +115,7 @@ pub enum Expression {
     Identifier(String),
     Call(Box<Expression>, Vec<Argument>),
     Navigation(Box<Expression>, String),
-    IntegerLiteral(u64),
+    IntegerLiteral(i64),
     BooleanLiteral(bool),
     StringLiteral(String),
 }

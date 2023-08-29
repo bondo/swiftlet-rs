@@ -1,20 +1,14 @@
-// use parser::{self, ParserError};
 use interpreter::run;
 use parser::parse;
 
 fn main() {
     let source = r#"
-        var a = 1;
-        if (a < 10) {
-            var a = 5;
-            print(a);
-            a = a + 1;
-        }
-        print(a);
+        struct Vec2 { var x: Int, y: Int, z: Int };
+        var v = Vec2 (x: 4, y: 2, z: 1);
+        print(v.y); // Prints 2
     "#;
 
     let ast = parse(source).unwrap_or_else(|e| panic!("\n{e}\n"));
-    println!("{:#?}\n\n", ast);
 
     run(ast);
 }
