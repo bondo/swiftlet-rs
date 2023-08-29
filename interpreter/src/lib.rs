@@ -316,14 +316,17 @@ impl Interpretable for Expression {
             Expression::Comparison(left, op, right) => {
                 let left = left.run(env)?;
                 let right = right.run(env)?;
+                let ord = left
+                    .partial_cmp(&right)
+                    .ok_or(format!("Cannot compare {left} and {right}"))?;
                 match op {
-                    ComparisonOperator::LessThan => Ok(ExpressionValue::Boolean(left < right)),
+                    ComparisonOperator::LessThan => Ok(ExpressionValue::Boolean(ord.is_lt())),
                     ComparisonOperator::LessThanOrEqual => {
-                        Ok(ExpressionValue::Boolean(left <= right))
+                        Ok(ExpressionValue::Boolean(ord.is_le()))
                     }
-                    ComparisonOperator::GreaterThan => Ok(ExpressionValue::Boolean(left > right)),
+                    ComparisonOperator::GreaterThan => Ok(ExpressionValue::Boolean(ord.is_gt())),
                     ComparisonOperator::GreaterThanOrEqual => {
-                        Ok(ExpressionValue::Boolean(left >= right))
+                        Ok(ExpressionValue::Boolean(ord.is_eq()))
                     }
                 }
             }
