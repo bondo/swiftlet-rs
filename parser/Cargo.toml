@@ -7,6 +7,7 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ast.workspace = true
 pest = "2.7.2"
 pest_derive = "2.7.2"
 thiserror.workspace = true

@@ -4,8 +4,6 @@ use pest::{
     Parser,
 };
 
-pub mod ast;
-
 use ast::*;
 
 #[derive(pest_derive::Parser)]

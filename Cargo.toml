@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "ast",
     "bin",
     "interpreter",
     "parser",
@@ -12,6 +13,7 @@ edition = "2021"
 authors = ["Bjarke Bondo Andersen"]
 
 [workspace.dependencies]
+ast = { path = "ast" }
 interpreter = { path = "interpreter" }
 parser = { path = "parser" }
 thiserror = "1.0.44"

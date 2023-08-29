@@ -1,5 +1,5 @@
 [package]
-name = "interpreter"
+name = "ast"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
@@ -7,4 +7,3 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ast.workspace = true
