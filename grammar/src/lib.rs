@@ -21,7 +21,7 @@ pub fn parse(input: &str) -> Result<Program, Error> {
     let pairs = SwiftletParser::parse(Rule::Program, input)?;
     for pair in pairs {
         match pair.as_rule() {
-            Rule::Stmt => statements.push(build_statement_from_pair(pair)),
+            Rule::Stmt => statements.append(&mut build_statements_from_pair(pair)),
             Rule::EOI => {}
             r => panic!("Unexpected rule in program: {r:?}"),
         }
@@ -29,29 +29,59 @@ pub fn parse(input: &str) -> Result<Program, Error> {
     Ok(Program { statements })
 }
 
-fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
+fn build_statements_from_pair(pair: Pair<Rule>) -> Vec<Statement> {
     debug_assert_eq!(pair.as_rule(), Rule::Stmt);
 
     let mut pairs = pair.into_inner();
     let pair = pairs.next().unwrap();
 
-    let stmt = match pair.as_rule() {
-        Rule::Assign => Statement::Assignment(build_assignment_from_pair(pair)),
-        Rule::PropertyDecl => {
-            Statement::PropertyDeceleration(build_property_deceleration_from_pair(pair))
+    let stmts = match pair.as_rule() {
+        Rule::Assign => vec![Statement::Assignment(build_assignment_from_pair(pair))],
+        Rule::PropertyDecl => build_property_decelerations_from_pair(pair)
+            .into_iter()
+            .map(|p| Statement::PropertyDeceleration(p))
+            .collect(),
+        Rule::StructDecl => {
+            let mut pairs = pair.into_inner();
+            let name = build_identifier_from_pair(pairs.next().unwrap());
+            let properties = pairs
+                .flat_map(|p| build_property_decelerations_from_pair(p))
+                .collect();
+
+            vec![Statement::StructDeceleration(StructDeceleration {
+                name,
+                properties,
+            })]
         }
-        Rule::If => todo!(),
-        Rule::While => {
+        Rule::If => {
             let mut pairs = pair.into_inner();
             let condition = build_expression_from_pair(pairs.next().unwrap());
-            let body = build_statement_from_pair(pairs.next().unwrap());
+            let if_branch = build_statements_from_pair(pairs.next().unwrap());
+            let else_branch = if let Some(pair) = pairs.next() {
+                build_statements_from_pair(pair)
+            } else {
+                vec![]
+            };
 
             debug_assert_eq!(pairs.next(), None);
 
-            Statement::WhileStatement(WhileStatement {
+            vec![Statement::IfStatement(IfStatement {
                 condition,
-                body: Box::new(body),
-            })
+                if_branch,
+                else_branch,
+            })]
+        }
+        Rule::While => {
+            let mut pairs = pair.into_inner();
+            let condition = build_expression_from_pair(pairs.next().unwrap());
+            let body = build_statements_from_pair(pairs.next().unwrap());
+
+            debug_assert_eq!(pairs.next(), None);
+
+            vec![Statement::WhileStatement(WhileStatement {
+                condition,
+                body,
+            })]
         }
         Rule::Print => {
             let mut pairs = pair.into_inner();
@@ -59,39 +89,36 @@ fn build_statement_from_pair(pair: Pair<Rule>) -> Statement {
 
             debug_assert_eq!(pairs.next(), None);
 
-            Statement::PrintStatement(PrintStatement { expression })
+            vec![Statement::PrintStatement(PrintStatement { expression })]
         }
         Rule::Block => {
             let statements = pair
                 .into_inner()
-                .map(|p| build_statement_from_pair(p))
+                .flat_map(|p| build_statements_from_pair(p))
                 .collect();
-            Statement::BlockStatement(BlockStatement { statements })
+            vec![Statement::BlockStatement(BlockStatement { statements })]
         }
         r => panic!("Unexpected rule in statement: {r:?}"),
     };
 
     debug_assert_eq!(pairs.next(), None);
 
-    stmt
+    stmts
 }
 
 fn build_assignment_from_pair(pair: Pair<Rule>) -> Assignment {
     debug_assert_eq!(pair.as_rule(), Rule::Assign);
 
     let mut pairs = pair.into_inner();
-    let identifier = build_identifier_from_pair(pairs.next().unwrap());
-    let expression = build_expression_from_pair(pairs.next().unwrap());
+    let lhs = build_identifier_from_pair(pairs.next().unwrap());
+    let rhs = build_expression_from_pair(pairs.next().unwrap());
 
     debug_assert_eq!(pairs.next(), None);
 
-    Assignment {
-        lhs: identifier,
-        rhs: expression,
-    }
+    Assignment { lhs, rhs }
 }
 
-fn build_property_deceleration_from_pair(pair: Pair<Rule>) -> PropertyDeceleration {
+fn build_property_decelerations_from_pair(pair: Pair<Rule>) -> Vec<PropertyDeceleration> {
     debug_assert_eq!(pair.as_rule(), Rule::PropertyDecl);
 
     let mut pairs = pair.into_inner();
@@ -100,32 +127,37 @@ fn build_property_deceleration_from_pair(pair: Pair<Rule>) -> PropertyDecelerati
         Rule::Let => Qualifier::Let,
         v => panic!("Unexpected qualifier value: '{v:?}'"),
     };
-    let identifier = build_identifier_from_pair(pairs.next().unwrap());
 
-    if pairs.peek().unwrap().as_rule() == Rule::Ident {
-        let ty = build_identifier_from_pair(pairs.next().unwrap());
-        let expression = build_expression_from_pair(pairs.next().unwrap());
+    let mut decls = vec![];
 
-        debug_assert_eq!(pairs.next(), None);
+    while let Some(pair) = pairs.next() {
+        let name = build_identifier_from_pair(pair);
 
-        PropertyDeceleration {
-            qualifier,
-            identifier,
-            ty: Some(ty),
-            expression,
-        }
-    } else {
-        let expression = build_expression_from_pair(pairs.next().unwrap());
+        let ty = {
+            if let Some(Rule::Ident) = pairs.peek().map(|p| p.as_rule()) {
+                Some(build_identifier_from_pair(pairs.next().unwrap()))
+            } else {
+                None
+            }
+        };
 
-        debug_assert_eq!(pairs.next(), None);
+        let initializer = {
+            if let Some(Rule::Expr) = pairs.peek().map(|p| p.as_rule()) {
+                Some(build_expression_from_pair(pairs.next().unwrap()))
+            } else {
+                None
+            }
+        };
 
-        PropertyDeceleration {
-            qualifier,
-            identifier,
-            ty: None,
-            expression,
-        }
+        decls.push(PropertyDeceleration {
+            qualifier: qualifier.clone(),
+            name,
+            ty,
+            initializer,
+        });
     }
+
+    decls
 }
 
 fn build_expression_from_pair(pair: Pair<Rule>) -> Expression {
@@ -245,7 +277,42 @@ fn build_pratt_expression_from_pair(pair: Pair<Rule>) -> Expression {
             }),
             Rule::True => Expression::BooleanLiteral(true),
             Rule::False => Expression::BooleanLiteral(false),
-            Rule::Ident => Expression::Identifier(build_identifier_from_pair(primary)),
+            Rule::Call => {
+                let mut pairs = primary.into_inner();
+
+                let mut expr =
+                    Expression::Identifier(build_identifier_from_pair(pairs.next().unwrap()));
+
+                while let Some(pair) = pairs.next() {
+                    match pair.as_rule() {
+                        Rule::Args => {
+                            let mut pairs = pair.into_inner();
+                            let mut arguments = vec![];
+
+                            while let Some(p) = pairs.peek() {
+                                let label = if p.as_rule() == Rule::Ident {
+                                    Some(build_identifier_from_pair(pairs.next().unwrap()))
+                                } else {
+                                    None
+                                };
+
+                                let value = build_expression_from_pair(pairs.next().unwrap());
+
+                                arguments.push(Argument { label, value });
+                            }
+
+                            expr = Expression::Invocation(Box::new(expr), arguments)
+                        }
+                        Rule::Ident => {
+                            let property = build_identifier_from_pair(pair);
+                            expr = Expression::PropertyAccess(Box::new(expr), property)
+                        }
+                        r => panic!("Unexpected rule in call expression: {:?}", r),
+                    };
+                }
+
+                expr
+            }
             Rule::Expr => build_expression_from_pair(primary),
             r => panic!("Unexpected rule in primary expression: {r:?}"),
         })
@@ -285,9 +352,9 @@ mod tests {
             Program {
                 statements: vec![Statement::PropertyDeceleration(PropertyDeceleration {
                     qualifier: Qualifier::Let,
-                    identifier: "foo".to_string(),
+                    name: "foo".to_string(),
                     ty: None,
-                    expression: Expression::Conditional(
+                    initializer: Some(Expression::Conditional(
                         Box::new(Expression::Or(
                             Box::new(Expression::IntegerLiteral(5)),
                             Box::new(Expression::And(
@@ -323,7 +390,7 @@ mod tests {
                             Box::new(Expression::IntegerLiteral(14)),
                             Box::new(Expression::IntegerLiteral(9))
                         ))
-                    )
+                    ))
                 })]
             }
         );
@@ -371,15 +438,15 @@ mod tests {
                 statements: vec![
                     Statement::PropertyDeceleration(PropertyDeceleration {
                         qualifier: Qualifier::Var,
-                        identifier: "foo".to_string(),
+                        name: "foo".to_string(),
                         ty: Some("Int".to_string()),
-                        expression: Expression::IntegerLiteral(4)
+                        initializer: Some(Expression::IntegerLiteral(4))
                     }),
                     Statement::PropertyDeceleration(PropertyDeceleration {
                         qualifier: Qualifier::Let,
-                        identifier: "bar".to_string(),
+                        name: "bar".to_string(),
                         ty: None,
-                        expression: Expression::Identifier("foo".to_string())
+                        initializer: Some(Expression::Identifier("foo".to_string()))
                     }),
                     Statement::PrintStatement(PrintStatement {
                         expression: Expression::Identifier("bar".to_string())
@@ -393,9 +460,9 @@ mod tests {
     fn example_2() {
         let program = parse(
             r#"
-            struct Vec2 { var x: Int, y: Int };
-            var v = Vec2 (x: 4, y: 2);
-            print(v.y); // Prints 2
+                struct Vec2 { var x: Int, y: Int };
+                var v = Vec2 (x: 4, y: 2);
+                print(v.y); // Prints 2
             "#,
         )
         .unwrap_or_else(|e| panic!("\n{e}\n"));
@@ -404,20 +471,46 @@ mod tests {
             program,
             Program {
                 statements: vec![
+                    Statement::StructDeceleration(StructDeceleration {
+                        name: "Vec2".to_string(),
+                        properties: vec![
+                            PropertyDeceleration {
+                                qualifier: Qualifier::Var,
+                                name: "x".to_string(),
+                                ty: Some("Int".to_string()),
+                                initializer: None
+                            },
+                            PropertyDeceleration {
+                                qualifier: Qualifier::Var,
+                                name: "y".to_string(),
+                                ty: Some("Int".to_string()),
+                                initializer: None
+                            }
+                        ]
+                    }),
                     Statement::PropertyDeceleration(PropertyDeceleration {
                         qualifier: Qualifier::Var,
-                        identifier: "foo".to_string(),
-                        ty: Some("Int".to_string()),
-                        expression: Expression::IntegerLiteral(4)
-                    }),
-                    Statement::PropertyDeceleration(PropertyDeceleration {
-                        qualifier: Qualifier::Let,
-                        identifier: "bar".to_string(),
+                        name: "v".to_string(),
                         ty: None,
-                        expression: Expression::Identifier("foo".to_string())
+                        initializer: Some(Expression::Invocation(
+                            Box::new(Expression::Identifier("Vec2".to_string())),
+                            vec![
+                                Argument {
+                                    label: Some("x".to_string()),
+                                    value: Expression::IntegerLiteral(4)
+                                },
+                                Argument {
+                                    label: Some("y".to_string()),
+                                    value: Expression::IntegerLiteral(2)
+                                }
+                            ]
+                        ))
                     }),
                     Statement::PrintStatement(PrintStatement {
-                        expression: Expression::Identifier("bar".to_string())
+                        expression: Expression::PropertyAccess(
+                            Box::new(Expression::Identifier("v".to_string())),
+                            "y".to_string()
+                        )
                     })
                 ]
             }

@@ -3,16 +3,19 @@ COMMENT = _{ "//" ~ (!"\n" ~ ANY)* }
 
 Program = _{ SOI ~ Stmt* ~ EOI }
 
-Stmt           =  { Assign | PropertyDecl | If | While | Print | Block }
-  Assign       =  { Ident ~ "=" ~ Expr ~ ";" }
-  PropertyDecl =  { Qual ~ Ident ~ ( ":" ~ Ident )? ~ "=" ~ Expr ~ ";" }
-    Qual       = _{ Var | Let }
-      Var      =  { "var" }
-      Let      =  { "let" }
-  If           =  { "if" ~ "(" ~ Expr ~ ")" ~ Stmt ~ ("else" ~ Stmt)? }
-  While        =  { "while" ~ "(" ~ Expr ~ ")" ~ Stmt }
-  Print        =  { "print" ~ "(" ~ Expr ~ ")" ~ ";" }
-  Block        =  { "{" ~ Stmt* ~ "}" }
+Stmt             =  { Assign | Decl | If | While | Print | Block }
+  Assign         =  { Ident ~ "=" ~ Expr ~ ";" }
+  Decl           = _{ (PropertyDecl | StructDecl) ~ ";" }
+    Qual         = _{ Var | Let }
+      Var        =  { "var" }
+      Let        =  { "let" }
+    SingleDecl   = _{ Ident ~ ( ":" ~ Ident )? ~ ("=" ~ Expr)? }
+    PropertyDecl =  { Qual ~ SingleDecl ~ ("," ~ SingleDecl)* }
+    StructDecl   =  { "struct" ~ Ident ~ "{" ~ PropertyDecl ~ (";" ~ PropertyDecl)* ~ "}" }
+  If             =  { "if" ~ "(" ~ Expr ~ ")" ~ Stmt ~ ("else" ~ Stmt)? }
+  While          =  { "while" ~ "(" ~ Expr ~ ")" ~ Stmt }
+  Print          =  { "print" ~ "(" ~ Expr ~ ")" ~ ";" }
+  Block          =  { "{" ~ Stmt* ~ "}" }
 
 Expr          =   { OrExpr ~ ( "?" ~ OrExpr ~ ":" ~ OrExpr)* }
 OrExpr        =   { AndExpr ~ ( "||" ~ AndExpr)* }
@@ -37,7 +40,10 @@ PrattExpr     =   { Prefix* ~ Primary ~ (Infix ~ Prefix* ~ Primary )* }
   Prefix      =  _{ Neg | Not }
     Neg       =   { "-" }
     Not       =   { "!" }
-  Primary     =  _{ Literal | Ident | "(" ~ Expr ~ ")" }
+  Primary     =  _{ Literal | Call | "(" ~ Expr ~ ")" }
+    Call      =   { Ident ~ (Args | "." ~ Ident)* }
+      Args    =   { "(" ~ (Arg ~ ("," ~ Arg)*)? ~ ")" }
+        Arg   =  _{ (Ident ~ ":")? ~ Expr }
     Literal   =  _{ Int | Str | Bool }
       Int     =  @{ ASCII_NONZERO_DIGIT ~ ASCII_DIGIT+ | ASCII_DIGIT }
       Str     =  @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }

@@ -10,12 +10,12 @@ enum ExpressionValue {
 }
 
 enum EnvDecl {
-    Constant(ExpressionValue),
-    Mutable(ExpressionValue),
+    Constant(Option<ExpressionValue>),
+    Mutable(Option<ExpressionValue>),
 }
 
 impl EnvDecl {
-    fn val(&self) -> ExpressionValue {
+    fn val(&self) -> Option<ExpressionValue> {
         match self {
             EnvDecl::Constant(v) => v.clone(),
             EnvDecl::Mutable(v) => v.clone(),
@@ -37,49 +37,52 @@ impl Environment {
         }
     }
 
-    fn get(&self, identifier: &str) -> Result<ExpressionValue, String> {
-        if let Some(res) = self.decls.read().unwrap().get(identifier) {
-            return Ok(res.val());
+    fn get(&self, name: &str) -> Result<ExpressionValue, String> {
+        if let Some(res) = self.decls.read().unwrap().get(name) {
+            if let Some(val) = res.val() {
+                return Ok(val);
+            }
+            return Err(format!("Identifier {name} not initialized"));
         }
         if let Some(parent) = &self.parent {
-            return parent.get(identifier);
+            return parent.get(name);
         }
-        return Err(format!("Identifier {} not found", identifier));
+        return Err(format!("Identifier {name} not found"));
     }
 
     fn declare(
         &mut self,
         qual: &Qualifier,
-        identifier: &str,
-        value: ExpressionValue,
+        name: &str,
+        value: Option<ExpressionValue>,
     ) -> Result<(), String> {
         let mut decl = self.decls.write().unwrap();
-        if decl.contains_key(identifier) {
+        if decl.contains_key(name) {
             return Err(format!(
-                "Identifier {identifier} is already declared in the current scope"
+                "Identifier {name} is already declared in the current scope"
             ));
         }
         match qual {
-            Qualifier::Var => decl.insert(identifier.to_string(), EnvDecl::Mutable(value)),
-            Qualifier::Let => decl.insert(identifier.to_string(), EnvDecl::Constant(value)),
+            Qualifier::Var => decl.insert(name.to_string(), EnvDecl::Mutable(value)),
+            Qualifier::Let => decl.insert(name.to_string(), EnvDecl::Constant(value)),
         };
         Ok(())
     }
 
-    fn update(&self, identifier: &str, value: ExpressionValue) -> Result<(), String> {
+    fn update(&self, name: &str, value: ExpressionValue) -> Result<(), String> {
         let mut decls = self.decls.write().unwrap();
-        if let Some(decl) = decls.get(identifier) {
+        if let Some(decl) = decls.get(name) {
             match decl {
-                EnvDecl::Constant(_) => Err(format!("Cannot redeclare constant {identifier}")),
+                EnvDecl::Constant(_) => Err(format!("Cannot redeclare constant {name}")),
                 EnvDecl::Mutable(_) => {
-                    decls.insert(identifier.to_string(), EnvDecl::Mutable(value));
+                    decls.insert(name.to_string(), EnvDecl::Mutable(Some(value)));
                     Ok(())
                 }
             }
         } else if let Some(parent) = &self.parent {
-            parent.update(identifier, value)
+            parent.update(name, value)
         } else {
-            Err(format!("Identifier {identifier} is not defined"))
+            Err(format!("Identifier {name} is not defined"))
         }
     }
 }
@@ -114,15 +117,15 @@ impl Interpretable for Statement {
             }
             Statement::PropertyDeceleration(PropertyDeceleration {
                 qualifier,
-                identifier,
+                name,
                 ty,
-                expression,
+                initializer,
             }) => {
                 if ty.is_some() {
                     todo!()
                 }
-                let value = expression.run(env)?;
-                env.declare(qualifier, identifier, value)?;
+                let value = initializer.as_ref().map(|i| i.run(env)).transpose()?;
+                env.declare(qualifier, name, value)?;
             }
             Statement::IfStatement(IfStatement {
                 condition,
@@ -131,14 +134,14 @@ impl Interpretable for Statement {
             }) => {
                 let cond = condition.run(env)?;
                 if cond.is_truthy() {
-                    if_branch.run(env)?;
-                } else if let Some(else_branch) = else_branch {
-                    else_branch.run(env)?;
+                    if_branch.into_iter().try_for_each(|s| s.run(env))?;
+                } else {
+                    else_branch.into_iter().try_for_each(|s| s.run(env))?;
                 }
             }
             Statement::WhileStatement(WhileStatement { condition, body }) => {
                 while condition.run(env)?.is_truthy() {
-                    body.run(env)?;
+                    body.into_iter().try_for_each(|s| s.run(env))?;
                 }
             }
             Statement::PrintStatement(PrintStatement { expression }) => {
@@ -151,6 +154,7 @@ impl Interpretable for Statement {
                     stmt.run(&mut env)?;
                 }
             }
+            Statement::StructDeceleration(_) => todo!(),
         }
         Ok(())
     }
@@ -297,6 +301,8 @@ impl Interpretable for Expression {
             Expression::IntegerLiteral(v) => Ok(ExpressionValue::Number(*v as i64)),
             Expression::BooleanLiteral(v) => Ok(ExpressionValue::Boolean(*v)),
             Expression::StringLiteral(v) => Ok(ExpressionValue::String(v.clone())),
+            Expression::Invocation(_, _) => todo!(),
+            Expression::PropertyAccess(_, _) => todo!(),
         }
     }
 }

@@ -7,6 +7,7 @@ pub struct Program {
 pub enum Statement {
     Assignment(Assignment),
     PropertyDeceleration(PropertyDeceleration),
+    StructDeceleration(StructDeceleration),
     IfStatement(IfStatement),
     WhileStatement(WhileStatement),
     PrintStatement(PrintStatement),
@@ -28,22 +29,28 @@ pub enum Qualifier {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PropertyDeceleration {
     pub qualifier: Qualifier,
-    pub identifier: String,
+    pub name: String,
     pub ty: Option<String>,
-    pub expression: Expression,
+    pub initializer: Option<Expression>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct StructDeceleration {
+    pub name: String,
+    pub properties: Vec<PropertyDeceleration>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct IfStatement {
     pub condition: Expression,
-    pub if_branch: Box<Statement>,
-    pub else_branch: Option<Box<Statement>>,
+    pub if_branch: Vec<Statement>,
+    pub else_branch: Vec<Statement>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct WhileStatement {
     pub condition: Expression,
-    pub body: Box<Statement>,
+    pub body: Vec<Statement>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -90,6 +97,12 @@ pub enum FactorOperator {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct Argument {
+    pub label: Option<String>,
+    pub value: Expression,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expression {
     Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
     Or(Box<Expression>, Box<Expression>),
@@ -100,6 +113,8 @@ pub enum Expression {
     Factor(Box<Expression>, FactorOperator, Box<Expression>),
     Unary(UnaryOperator, Box<Expression>),
     Identifier(String),
+    Invocation(Box<Expression>, Vec<Argument>),
+    PropertyAccess(Box<Expression>, String),
     IntegerLiteral(u64),
     BooleanLiteral(bool),
     StringLiteral(String),
