@@ -7,3 +7,7 @@ authors.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ariadne = "0.3.0"
+pest.workspace = true
+thiserror.workspace = true
+yansi = "0.5.1"

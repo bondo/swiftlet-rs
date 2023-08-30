@@ -18,8 +18,10 @@ Stmt             =  { Assign | Decl | If | While | Print | Block }
   Block          =  { "{" ~ Stmt* ~ "}" }
 
 Expr          =   { OrExpr ~ ( "?" ~ OrExpr ~ ":" ~ OrExpr)* }
-OrExpr        =   { AndExpr ~ ( "||" ~ AndExpr)* }
-AndExpr       =   { EqExpr ~ ( "&&" ~ EqExpr)* }
+OrExpr        =   { AndExpr ~ ( OrOp ~ AndExpr)* }
+  OrOp        =   { "||" }
+AndExpr       =   { EqExpr ~ ( AndOp ~ EqExpr)* }
+  AndOp       =   { "&&" }
 EqExpr        =   { CmpExpr ~ ( EqOp ~ CmpExpr )? }
   EqOp        =  _{ Eq | Ne }
     Eq        =   { "==" }

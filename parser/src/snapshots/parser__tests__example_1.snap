@@ -1,0 +1,76 @@
+---
+source: parser/src/lib.rs
+expression: "parse(r#\"\n                var foo: Int = 4;\n                let bar = foo;\n                print(bar); // Prints 4\n            \"#).unwrap_or_else(|e|\n        panic!(\"\\n{e}\\n\"))"
+---
+Program {
+    statements: [
+        PropertyDeceleration(
+            PropertyDeceleration {
+                qualifier: Var,
+                name: (
+                    Span {
+                        str: "foo",
+                        start: 21,
+                        end: 24,
+                    },
+                    "foo",
+                ),
+                ty: Some(
+                    (
+                        Span {
+                            str: "Int",
+                            start: 26,
+                            end: 29,
+                        },
+                        "Int",
+                    ),
+                ),
+                initializer: Some(
+                    IntegerLiteral(
+                        4,
+                    ),
+                ),
+            },
+        ),
+        PropertyDeceleration(
+            PropertyDeceleration {
+                qualifier: Let,
+                name: (
+                    Span {
+                        str: "bar",
+                        start: 55,
+                        end: 58,
+                    },
+                    "bar",
+                ),
+                ty: None,
+                initializer: Some(
+                    Identifier(
+                        (
+                            Span {
+                                str: "foo",
+                                start: 61,
+                                end: 64,
+                            },
+                            "foo",
+                        ),
+                    ),
+                ),
+            },
+        ),
+        PrintStatement(
+            PrintStatement {
+                expression: Identifier(
+                    (
+                        Span {
+                            str: "bar",
+                            start: 88,
+                            end: 91,
+                        },
+                        "bar",
+                    ),
+                ),
+            },
+        ),
+    ],
+}

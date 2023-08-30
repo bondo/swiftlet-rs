@@ -1,0 +1,79 @@
+---
+source: parser/src/lib.rs
+expression: program
+---
+Program {
+    statements: [
+        PrintStatement(
+            PrintStatement {
+                expression: And(
+                    Comparison(
+                        Identifier(
+                            (
+                                Span {
+                                    str: "a",
+                                    start: 6,
+                                    end: 7,
+                                },
+                                "a",
+                            ),
+                        ),
+                        (
+                            Span {
+                                str: ">",
+                                start: 8,
+                                end: 9,
+                            },
+                            GreaterThan,
+                        ),
+                        Identifier(
+                            (
+                                Span {
+                                    str: "b",
+                                    start: 10,
+                                    end: 11,
+                                },
+                                "b",
+                            ),
+                        ),
+                    ),
+                    Span {
+                        str: "&&",
+                        start: 12,
+                        end: 14,
+                    },
+                    Comparison(
+                        Identifier(
+                            (
+                                Span {
+                                    str: "b",
+                                    start: 15,
+                                    end: 16,
+                                },
+                                "b",
+                            ),
+                        ),
+                        (
+                            Span {
+                                str: "<",
+                                start: 17,
+                                end: 18,
+                            },
+                            LessThan,
+                        ),
+                        Identifier(
+                            (
+                                Span {
+                                    str: "c",
+                                    start: 19,
+                                    end: 20,
+                                },
+                                "c",
+                            ),
+                        ),
+                    ),
+                ),
+            },
+        ),
+    ],
+}

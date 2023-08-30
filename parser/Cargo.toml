@@ -8,6 +8,9 @@ authors.workspace = true
 
 [dependencies]
 ast.workspace = true
-pest = "2.7.2"
-pest_derive = "2.7.2"
+pest.workspace = true
+pest_derive.workspace = true
 thiserror.workspace = true
+
+[dev-dependencies]
+insta = "1.31.0"

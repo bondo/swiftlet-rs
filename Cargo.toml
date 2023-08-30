@@ -16,4 +16,6 @@ authors = ["Bjarke Bondo Andersen"]
 ast = { path = "ast" }
 interpreter = { path = "interpreter" }
 parser = { path = "parser" }
+pest = "2.7.3"
+pest_derive = "2.7.3"
 thiserror = "1.0.44"

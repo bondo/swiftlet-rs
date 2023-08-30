@@ -1,0 +1,156 @@
+---
+source: parser/src/lib.rs
+expression: program
+---
+Program {
+    statements: [
+        PropertyDeceleration(
+            PropertyDeceleration {
+                qualifier: Let,
+                name: (
+                    Span {
+                        str: "foo",
+                        start: 4,
+                        end: 7,
+                    },
+                    "foo",
+                ),
+                ty: None,
+                initializer: Some(
+                    Conditional(
+                        (
+                            Span {
+                                str: "5 || !\"20\" < true && (john - 4) * -2 ",
+                                start: 10,
+                                end: 47,
+                            },
+                            Or(
+                                IntegerLiteral(
+                                    5,
+                                ),
+                                Span {
+                                    str: "||",
+                                    start: 12,
+                                    end: 14,
+                                },
+                                And(
+                                    Comparison(
+                                        Unary(
+                                            (
+                                                Span {
+                                                    str: "!",
+                                                    start: 15,
+                                                    end: 16,
+                                                },
+                                                Not,
+                                            ),
+                                            StringLiteral(
+                                                "20",
+                                            ),
+                                        ),
+                                        (
+                                            Span {
+                                                str: "<",
+                                                start: 21,
+                                                end: 22,
+                                            },
+                                            LessThan,
+                                        ),
+                                        BooleanLiteral(
+                                            true,
+                                        ),
+                                    ),
+                                    Span {
+                                        str: "&&",
+                                        start: 28,
+                                        end: 30,
+                                    },
+                                    Factor(
+                                        Term(
+                                            Identifier(
+                                                (
+                                                    Span {
+                                                        str: "john",
+                                                        start: 32,
+                                                        end: 36,
+                                                    },
+                                                    "john",
+                                                ),
+                                            ),
+                                            (
+                                                Span {
+                                                    str: "-",
+                                                    start: 37,
+                                                    end: 38,
+                                                },
+                                                Minus,
+                                            ),
+                                            IntegerLiteral(
+                                                4,
+                                            ),
+                                        ),
+                                        (
+                                            Span {
+                                                str: "*",
+                                                start: 42,
+                                                end: 43,
+                                            },
+                                            Multiply,
+                                        ),
+                                        Unary(
+                                            (
+                                                Span {
+                                                    str: "-",
+                                                    start: 44,
+                                                    end: 45,
+                                                },
+                                                Negate,
+                                            ),
+                                            IntegerLiteral(
+                                                2,
+                                            ),
+                                        ),
+                                    ),
+                                ),
+                            ),
+                        ),
+                        IntegerLiteral(
+                            42,
+                        ),
+                        Conditional(
+                            (
+                                Span {
+                                    str: "19 < 30 ",
+                                    start: 54,
+                                    end: 62,
+                                },
+                                Comparison(
+                                    IntegerLiteral(
+                                        19,
+                                    ),
+                                    (
+                                        Span {
+                                            str: "<",
+                                            start: 57,
+                                            end: 58,
+                                        },
+                                        LessThan,
+                                    ),
+                                    IntegerLiteral(
+                                        30,
+                                    ),
+                                ),
+                            ),
+                            IntegerLiteral(
+                                14,
+                            ),
+                            IntegerLiteral(
+                                9,
+                            ),
+                        ),
+                    ),
+                ),
+            },
+        ),
+    ],
+}

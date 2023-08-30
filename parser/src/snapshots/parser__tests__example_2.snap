@@ -1,0 +1,178 @@
+---
+source: parser/src/lib.rs
+expression: program
+---
+Program {
+    statements: [
+        StructDeceleration(
+            StructDeceleration {
+                name: (
+                    Span {
+                        str: "Vec2",
+                        start: 24,
+                        end: 28,
+                    },
+                    "Vec2",
+                ),
+                properties: [
+                    PropertyDeceleration {
+                        qualifier: Var,
+                        name: (
+                            Span {
+                                str: "x",
+                                start: 35,
+                                end: 36,
+                            },
+                            "x",
+                        ),
+                        ty: Some(
+                            (
+                                Span {
+                                    str: "Int",
+                                    start: 38,
+                                    end: 41,
+                                },
+                                "Int",
+                            ),
+                        ),
+                        initializer: None,
+                    },
+                    PropertyDeceleration {
+                        qualifier: Var,
+                        name: (
+                            Span {
+                                str: "y",
+                                start: 43,
+                                end: 44,
+                            },
+                            "y",
+                        ),
+                        ty: Some(
+                            (
+                                Span {
+                                    str: "Int",
+                                    start: 46,
+                                    end: 49,
+                                },
+                                "Int",
+                            ),
+                        ),
+                        initializer: None,
+                    },
+                ],
+            },
+        ),
+        PropertyDeceleration(
+            PropertyDeceleration {
+                qualifier: Var,
+                name: (
+                    Span {
+                        str: "v",
+                        start: 73,
+                        end: 74,
+                    },
+                    "v",
+                ),
+                ty: None,
+                initializer: Some(
+                    Call(
+                        (
+                            Span {
+                                str: "Vec2",
+                                start: 77,
+                                end: 81,
+                            },
+                            Identifier(
+                                (
+                                    Span {
+                                        str: "Vec2",
+                                        start: 77,
+                                        end: 81,
+                                    },
+                                    "Vec2",
+                                ),
+                            ),
+                        ),
+                        [
+                            Argument {
+                                label: Some(
+                                    (
+                                        Span {
+                                            str: "x",
+                                            start: 83,
+                                            end: 84,
+                                        },
+                                        "x",
+                                    ),
+                                ),
+                                value: (
+                                    Span {
+                                        str: "4",
+                                        start: 86,
+                                        end: 87,
+                                    },
+                                    IntegerLiteral(
+                                        4,
+                                    ),
+                                ),
+                            },
+                            Argument {
+                                label: Some(
+                                    (
+                                        Span {
+                                            str: "y",
+                                            start: 89,
+                                            end: 90,
+                                        },
+                                        "y",
+                                    ),
+                                ),
+                                value: (
+                                    Span {
+                                        str: "2",
+                                        start: 92,
+                                        end: 93,
+                                    },
+                                    IntegerLiteral(
+                                        2,
+                                    ),
+                                ),
+                            },
+                        ],
+                    ),
+                ),
+            },
+        ),
+        PrintStatement(
+            PrintStatement {
+                expression: Navigation(
+                    (
+                        Span {
+                            str: "v",
+                            start: 118,
+                            end: 119,
+                        },
+                        Identifier(
+                            (
+                                Span {
+                                    str: "v",
+                                    start: 118,
+                                    end: 119,
+                                },
+                                "v",
+                            ),
+                        ),
+                    ),
+                    (
+                        Span {
+                            str: "y",
+                            start: 120,
+                            end: 121,
+                        },
+                        "y",
+                    ),
+                ),
+            },
+        ),
+    ],
+}
